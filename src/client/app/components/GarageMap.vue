@@ -68,8 +68,13 @@ function updateLegacyMarker(): void {
     return
   }
 
-  marker ??= new library.Marker().addTo(map)
-  marker.setLngLat([props.longitude!, props.latitude!])
+  const coordinates: [number, number] = [props.longitude!, props.latitude!]
+  if (!marker) {
+    marker = new library.Marker().setLngLat(coordinates).addTo(map)
+    return
+  }
+
+  marker.setLngLat(coordinates)
 }
 
 function updateGarageMarkerContent(element: HTMLAnchorElement, garage: GarageDto): void {

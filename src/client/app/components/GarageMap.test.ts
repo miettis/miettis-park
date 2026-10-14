@@ -36,13 +36,20 @@ function mapStub() {
       return mapInstance
     },
     Marker: function Marker(options?: { element?: HTMLElement }) {
+      let positioned = false
       const entry = {
         element: options?.element ?? document.createElement('div'),
         remove: vi.fn(function remove(this: { element: HTMLElement }) {
           this.element.remove()
         }),
-        setLngLat: vi.fn().mockReturnThis(),
+        setLngLat: vi.fn(function setLngLat(this: { element: HTMLElement }) {
+          positioned = true
+          return this
+        }),
         addTo: vi.fn(function addTo(this: { element: HTMLElement }) {
+          if (!positioned) {
+            throw new Error('Marker must have coordinates before addTo')
+          }
           container?.append(this.element)
           return this
         })
@@ -56,6 +63,46 @@ function mapStub() {
 }
 
 describe('GarageMap hall markers', () => {
+  it('initializes an existing garage location before attaching its marker and reuses it for coordinate changes', async () => {
+    const stub = mapStub()
+    const wrapper = mount(GarageMap, {
+      props: { latitude: 60.17, longitude: 24.94, selectable: true },
+      global: { provide: { [mapLibreLoaderKey]: stub.loader } }
+    })
+    await flushPromises()
+
+    expect(wrapper.find('.map-error').exists()).toBe(false)
+    expect(stub.markers).toHaveLength(1)
+    expect(stub.markers[0]?.setLngLat).toHaveBeenCalledWith([24.94, 60.17])
+
+    await wrapper.setProps({ latitude: 61, longitude: 25 })
+    expect(stub.markers).toHaveLength(1)
+    expect(stub.markers[0]?.setLngLat).toHaveBeenLastCalledWith([25, 61])
+    wrapper.unmount()
+    expect(stub.markers[0]?.remove).toHaveBeenCalledOnce()
+  })
+
+  it('attaches a newly selected location only after positioning it, including zero coordinates', async () => {
+    const stub = mapStub()
+    const wrapper = mount(GarageMap, {
+      props: { latitude: null, longitude: null, selectable: true },
+      global: { provide: { [mapLibreLoaderKey]: stub.loader } }
+    })
+    await flushPromises()
+    expect(stub.markers).toHaveLength(0)
+
+    await wrapper.setProps({ latitude: 0, longitude: 0 })
+    expect(wrapper.find('.map-error').exists()).toBe(false)
+    expect(stub.markers[0]?.setLngLat).toHaveBeenCalledWith([0, 0])
+
+    await wrapper.setProps({ latitude: null, longitude: null })
+    expect(stub.markers[0]?.remove).toHaveBeenCalledOnce()
+    await wrapper.setProps({ latitude: 60, longitude: 24 })
+    expect(stub.markers).toHaveLength(2)
+    expect(stub.markers[1]?.setLngLat).toHaveBeenCalledWith([24, 60])
+    wrapper.unmount()
+  })
+
   it('renders direct garage anchors with occupancy and updates them without recreating map or refitting unchanged points', async () => {
     const stub = mapStub()
     const wrapper = mount(GarageMap, {
