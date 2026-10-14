@@ -94,7 +94,8 @@ select:focus-visible {
   gap: 7px;
 }
 
-.sidebar nav button {
+.sidebar nav button,
+.sidebar nav a {
   display: flex;
   min-height: 43px;
   align-items: center;
@@ -108,7 +109,8 @@ select:focus-visible {
   text-align: left;
 }
 
-.sidebar nav button[aria-current="page"] {
+.sidebar nav button[aria-current="page"],
+.sidebar nav a[aria-current="page"] {
   background: var(--mint);
   color: var(--green);
   font-weight: 700;
@@ -820,7 +822,8 @@ select:focus-visible {
     margin-top: 9px;
   }
 
-  .sidebar nav button {
+  .sidebar nav button,
+  .sidebar nav a {
     min-height: 36px;
     justify-content: center;
     gap: 5px;
@@ -922,5 +925,43 @@ select:focus-visible {
     flex-direction: column;
     gap: 5px;
   }
+}
+
+.sidebar nav a {
+  text-decoration: none;
+}
+
+.admin-panel {
+  margin-top: 18px;
+}
+
+.admin-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.admin-table-scroll:focus-visible {
+  outline: 3px solid #70ae91;
+  outline-offset: 2px;
+}
+
+.admin-table-scroll table {
+  width: 100%;
+  min-width: 540px;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.admin-table-scroll caption {
+  padding: 8px 0;
+  text-align: left;
+  color: var(--muted);
+}
+
+.admin-table-scroll th,
+.admin-table-scroll td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--line);
 }
 </style>

@@ -50,6 +50,7 @@ function money(value: number, currency: string): string {
         <button type="button" :aria-current="activePage === 'lots' ? 'page' : undefined" @click="activePage = 'lots'">
           <span aria-hidden="true">▦</span> Paikkatilanne
         </button>
+        <a href="/admin">▦ Hallinta</a>
       </nav>
       <div class="sidebar-bottom">
         <span class="connection-dot" aria-hidden="true" />
