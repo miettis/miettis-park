@@ -135,3 +135,7 @@ GitHub Actions julkaisee imagen `ghcr.io/<owner>/<repository>` semanttisesta tag
 ## V2-suunnitelma
 
 MVP:n jälkeinen hallien ylläpito, ruudukkopohjat ja kartta: [SPEC-V2.md](SPEC-V2.md) ja [BACKLOG-V2.md](BACKLOG-V2.md). Suunnitelma ei tarkoita, että ominaisuudet on toteutettu tai työitemit luotu PullPotentialiin.
+
+## V3-suunnitelma
+
+Autokuvasta tunnistettu rekisteri kirjaa sisäänajon ilman manuaalista hyväksyntää; simulaatiotapahtumille voi valita ajan. [SPEC-V3.md](SPEC-V3.md) ja [BACKLOG-V3.md](BACKLOG-V3.md). Kyse on suunnitelmasta; v3-työitemeitä tai toteutusta ei luotu tällä toimeksiannolla.
