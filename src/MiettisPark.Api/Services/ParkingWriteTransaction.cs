@@ -27,16 +27,28 @@ public sealed class ParkingWriteTransactionFactory(ParkingDbContext database) : 
 
     private sealed class ParkingWriteTransaction(ParkingDbContext database, IDbContextTransaction transaction) : IParkingWriteTransaction
     {
-        public Task<ParkingGarage?> LockGarageAsync(int garageId, CancellationToken cancellationToken)
+        public async Task<ParkingGarage?> LockGarageAsync(int garageId, CancellationToken cancellationToken)
         {
-            return database.ParkingGarages.FromSqlInterpolated($"SELECT * FROM parking_garages WHERE id = {garageId} FOR UPDATE")
-                .AsNoTracking().SingleOrDefaultAsync(cancellationToken);
+            var garage = await database.ParkingGarages.FromSqlInterpolated($"SELECT * FROM parking_garages WHERE id = {garageId} FOR UPDATE")
+                .SingleOrDefaultAsync(cancellationToken);
+            if (garage != null)
+            {
+                await database.Entry(garage).ReloadAsync(cancellationToken);
+            }
+
+            return garage;
         }
 
-        public Task<ParkingLot?> LockLotAsync(int garageId, int lotId, CancellationToken cancellationToken)
+        public async Task<ParkingLot?> LockLotAsync(int garageId, int lotId, CancellationToken cancellationToken)
         {
-            return database.ParkingLots.FromSqlInterpolated($"SELECT * FROM parking_lots WHERE parking_garage_id = {garageId} AND id = {lotId} FOR UPDATE")
+            var lot = await database.ParkingLots.FromSqlInterpolated($"SELECT * FROM parking_lots WHERE parking_garage_id = {garageId} AND id = {lotId} FOR UPDATE")
                 .SingleOrDefaultAsync(cancellationToken);
+            if (lot != null)
+            {
+                await database.Entry(lot).ReloadAsync(cancellationToken);
+            }
+
+            return lot;
         }
 
         public Task CommitAsync(CancellationToken cancellationToken) => transaction.CommitAsync(cancellationToken);

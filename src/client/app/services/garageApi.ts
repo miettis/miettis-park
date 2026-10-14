@@ -4,6 +4,9 @@ import type {
   AvailabilityDto,
   EntryDto,
   GarageDto,
+  GarageInputDto,
+  GarageLayoutDto,
+  GarageLayoutInputDto,
   LotEntryDto,
   LotExitDto,
   ProblemDetailsDto,
@@ -21,9 +24,16 @@ export interface GarageApi {
   exitLot(garageId: number, lotId: number): Promise<LotExitDto>
 }
 
+export interface GarageManagementApi extends Pick<GarageApi, 'getGarages'> {
+  createGarage(input: GarageInputDto): Promise<GarageDto>
+  updateGarage(id: number, input: GarageInputDto): Promise<GarageDto>
+  getLayout(id: number): Promise<GarageLayoutDto>
+  saveLayout(id: number, input: GarageLayoutInputDto): Promise<GarageLayoutDto>
+}
+
 export const garageApiKey = Symbol('garageApi')
 
-export class HttpGarageApi implements GarageApi {
+export class HttpGarageApi implements GarageApi, GarageManagementApi {
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await fetch(path, {
       ...init,
@@ -50,6 +60,22 @@ export class HttpGarageApi implements GarageApi {
 
   getGarages(): Promise<GarageDto[]> {
     return this.request('/api/garages')
+  }
+
+  createGarage(input: GarageInputDto): Promise<GarageDto> {
+    return this.request('/api/garages', { method: 'POST', body: JSON.stringify(input) })
+  }
+
+  updateGarage(id: number, input: GarageInputDto): Promise<GarageDto> {
+    return this.request(`/api/garages/${id}`, { method: 'PUT', body: JSON.stringify(input) })
+  }
+
+  getLayout(id: number): Promise<GarageLayoutDto> {
+    return this.request(`/api/garages/${id}/layout`)
+  }
+
+  saveLayout(id: number, input: GarageLayoutInputDto): Promise<GarageLayoutDto> {
+    return this.request(`/api/garages/${id}/layout`, { method: 'PUT', body: JSON.stringify(input) })
   }
 
   getAvailability(garageId: number): Promise<AvailabilityDto> {

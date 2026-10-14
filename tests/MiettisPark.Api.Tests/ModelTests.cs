@@ -50,6 +50,14 @@ public sealed class ModelTests
         var snapshot = property.GetValueComparer()!.Snapshot(tiers);
         tiers[0].Amount = 1m;
         Assert.False(property.GetValueComparer()!.Equals(tiers, snapshot));
+        Assert.True(garage.FindProperty(nameof(ParkingGarage.LayoutVersion))!.IsConcurrencyToken);
+        Assert.Equal("jsonb", garage.FindProperty(nameof(ParkingGarage.LayoutCells))!.GetColumnType());
+        Assert.Contains(lot.GetIndexes(), index => index.IsUnique && index.GetFilter() == "is_active = true");
+        var layoutProperty = garage.FindProperty(nameof(ParkingGarage.LayoutCells))!;
+        var cells = new List<LayoutCell> { new(0, 0, LayoutCellType.ParkingLot, 99) };
+        var cellSnapshot = layoutProperty.GetValueComparer()!.Snapshot(cells);
+        cells[0] = cells[0] with { LotId = 100 };
+        Assert.False(layoutProperty.GetValueComparer()!.Equals(cells, cellSnapshot));
         Assert.False(database.Database.HasPendingModelChanges());
         var sql = database.GetService<IMigrator>().GenerateScript(options: MigrationsSqlGenerationOptions.Idempotent);
         Assert.Contains("CREATE UNIQUE INDEX \"IX_visits_parking_garage_id_license_number\"", sql);
@@ -66,5 +74,45 @@ public sealed class ModelTests
         Assert.Contains("ck_parkings_lifecycle", sql);
         Assert.Contains("timestamp with time zone", sql);
         Assert.Contains("numeric(12,2)", sql);
+        var layoutSql = database.GetService<IMigrator>().GenerateScript("20261014125724_InitialCreate");
+        Assert.Contains("HAVING count(*) > 2500", layoutSql);
+        Assert.Contains("RAISE EXCEPTION", layoutSql);
+        Assert.Contains("ORDER BY number, id", layoutSql);
+        Assert.Contains("greatest(1, least(n, 50))", layoutSql);
+        Assert.Contains("greatest(1, (n + 49) / 50)", layoutSql);
+        Assert.Contains("generate_series(0, d.width * d.height - 1)", layoutSql);
+        Assert.Contains("'x', pos % d.width, 'y', pos / d.width", layoutSql);
+        Assert.Contains("WHERE is_active = true", layoutSql);
+        Assert.DoesNotContain("DELETE FROM", layoutSql);
+        Assert.DoesNotContain("UPDATE parking_lots", layoutSql);
+        Assert.DoesNotContain("UPDATE visits", layoutSql);
+        Assert.DoesNotContain("UPDATE parkings", layoutSql);
+        Assert.DoesNotContain("parking_fee_configuration =", layoutSql);
+        Assert.DoesNotContain("WHERE id = 1", layoutSql);
+        Assert.Contains("ck_garages_location", layoutSql);
     }
+
+    [Theory]
+    [InlineData(0, 1, 1)]
+    [InlineData(5, 5, 1)]
+    [InlineData(50, 50, 1)]
+    [InlineData(51, 50, 2)]
+    [InlineData(2500, 50, 50)]
+    public void OfflineBackfillArithmeticMatchesSqlBoundaries(int count, int expectedWidth, int expectedHeight)
+    {
+        // Reference calculation plus exact SQL assertions above, not a PostgreSQL migration run.
+        var width = Math.Max(1, Math.Min(count, 50));
+        var height = Math.Max(1, (count + 49) / 50);
+        Assert.Equal((expectedWidth, expectedHeight), (width, height));
+        var cells = Enumerable.Range(0, width * height).Select(position => new
+        {
+            X = position % width,
+            Y = position / width,
+            HasLot = position < count
+        }).ToList();
+        Assert.Equal(count, cells.Count(cell => cell.HasLot));
+        Assert.Equal(cells.Count, cells.Select(cell => (cell.X, cell.Y)).Distinct().Count());
+        Assert.All(cells, cell => Assert.InRange(cell.Y, 0, height - 1));
+    }
+
 }

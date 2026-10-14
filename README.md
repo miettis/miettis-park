@@ -8,7 +8,7 @@
 - [VALIDATION.md](VALIDATION.md): paikallinen näyttö, testimatriisi ja myöhemmin ajettava ihmisen ympäristötarkistus.
 - [Käyttöliittymäluonnokset](ui-mocks/index.html): erillinen prototyyppi esimerkkidatalla, ei sovelluksen tietolähde.
 
-Projektin 34 nykyinen toimeksianto kattaa PARK-01 → PARK-02 → PARK-04 → PARK-03, myös adminin. Se korvaa BACKLOGin vanhan adminin myöhempää milestonea koskevan rajauksen. Käyttäjän 14.10.2026 hyväksymä palveluriippumaton agenttihyväksyntä korvaa dokumenttien vanhat ulkoiset valmistumisportit; ei SPEC:n liiketoimintasääntöjä. Oikea selain, Docker ja PostgreSQL tarkistetaan myöhemmin ihmisen toimesta. Paikallinen hyväksyntä ei tarkoita ympäristöhyväksyntää tai tuotantovalmiutta.
+MVP:n toteutusjärjestys oli PARK-01 → PARK-02 → PARK-04 → PARK-03, myös admin. V2:n järjestys on PARK-V2-01 → PARK-V2-02 → PARK-V2-03; tässä toteutettu osuus on PARK-V2-01. Se korvaa BACKLOGin vanhan adminin myöhempää milestonea koskevan rajauksen. Käyttäjän 14.10.2026 hyväksymä palveluriippumaton agenttihyväksyntä korvaa dokumenttien vanhat ulkoiset valmistumisportit; ei SPEC:n liiketoimintasääntöjä. Oikea selain, Docker ja PostgreSQL tarkistetaan myöhemmin ihmisen toimesta. Paikallinen hyväksyntä ei tarkoita ympäristöhyväksyntää tai tuotantovalmiutta.
 
 ## Toteutus ja arkkitehtuuri
 
@@ -85,11 +85,11 @@ Pohjan GitHub Actions julkaisee GHCR-imagen semanttisesta tagista. Julkaisuworkf
 
 ## API ja pysyvät sopimukset
 
-Tunnisteet ovat `int`; Contracts\GarageContracts.cs on DTO-sopimus. Kahdeksan reittiä:
+Tunnisteet ovat `int`; Contracts\GarageContracts.cs on DTO-sopimus. MVP-reitit (v2:n lisäykset jäljempänä):
 
 | Metodi/reitti | Sopimus |
 | --- | --- |
-| GET `/api/garages` | `id`, `name`. |
+| GET `/api/garages` | `id`, `name`, osoite/piste sekä aktiivisten paikkojen saatavuusyhteenveto. |
 | GET `/api/garages/{garageId}/availability` | `capacity`, `activeVisits`, `freeLots`, `occupiedLots`, `unknownLots`, `isFull`, paikkalista. |
 | GET `/api/garages/{garageId}/visits/active` | VisitId, rekisteri, alku, nullable paikka. |
 | GET `/api/garages/{garageId}/parkings/active` | ParkingId, paikka, nullable VisitId/rekisteri, Parking-alku. |
@@ -124,14 +124,49 @@ Kulunut aika on Parking.startAt:n ja selaimen viimeisen onnistuneen päivityshet
 
 ## Rajaus, luovutus ja seuraavat askeleet
 
-Toteutettu: normaali polku, itsenäiset paikkahavainnot, hinnoittelu/kuitti, Duplicate/recovery/virhepolut, turvalliset konfliktit, API-reload, lukeva admin ja kertynyt paikallinen testiharness. PARK-03 lisää vain palvelun 3 h -rajan tallennustestin ja koko MVP:n loppuhyväksyntä-/luovutusdokumentit.
+Toteutettu: normaali polku, itsenäiset paikkahavainnot, hinnoittelu/kuitti, Duplicate/recovery/virhepolut, turvalliset konfliktit, API-reload, lukeva admin ja kertynyt paikallinen testiharness. PARK-03 lisäsi palvelun 3 h -rajan tallennustestin ja koko MVP:n loppuhyväksyntä-/luovutusdokumentit.
 
-Pois rajattu: auth, oikea maksaminen/portit/kamerat, varaukset, huoltotilat, monihalli-UI, ajonaikainen hinnasto/hintaversiot, varma kameraviestien idempotenssi, manuaalinen laskutus/portinohitus, automaattinen Unknown-sovitus, reaaliaikapäivitys ja tuotantodeploymentin uudistus.
+Pois rajattu: auth, oikea maksaminen/portit/kamerat, varaukset, huoltotilat, ajonaikainen hinnasto/hintaversiot, varma kameraviestien idempotenssi, manuaalinen laskutus/portinohitus, automaattinen Unknown-sovitus, reaaliaikapäivitys ja tuotantodeploymentin uudistus.
 
-Milestone/59 sisältää PARK-01 (`2715700`, PR #1), PARK-02 (`4a98c71`, PR #2) ja PARK-04 (`b0986bf`, PR #3). PARK-03/item 1119 on tällä hetkellä toteutus/submissionissa, **ei vielä integroitu**: PullPotential finalisoi sen vasta submissionin jälkeen. Milestone on InProgress, ei julkaistu release. Nykyrevision kolmen verification-avaimen lopputulos ja pysyvä checklist/submission ovat platformissa; aiempien itemien näyttö ei korvaa niitä.
+Milestone/59 sisältää PARK-01 (`2715700`, PR #1), PARK-02 (`4a98c71`, PR #2) ja PARK-04 (`b0986bf`, PR #3). MVP-itemit 1116–1119 ja milestone 59 ovat nykyisen projektitoimeksiannon mukaan Done. Tässä itemissä ei tehty mergeä tai julkaisua. Nykyrevision kolmen verification-avaimen lopputulos ja pysyvä checklist/submission ovat platformissa; aiempien itemien näyttö ei korvaa niitä.
 
 GitHub Actions julkaisee imagen `ghcr.io/<owner>/<repository>` semanttisesta tagista, esimerkiksi `v1.2.3` tai `v1.2.3-rc.1`. Virheellinen versiotagi pysäyttää työn ennen julkaisua. Docker-tagit ovat versio ilman v-etuliitettä, `sha-<12 merkkiä>` ja vain vakaalle versiolle `latest`. SemVerin mahdollinen `+build` tallennetaan Docker-tagissa `_build`-muodossa; build-metadatatagi ei muuta latestia. Julkaisu käyttää GitHubin GITHUB_TOKENia ja packages:write-oikeutta. Imagea ei ole vielä julkaistu eikä workflowta ajettu GitHubissa.
 
 ## V2-suunnitelma
 
-MVP:n jälkeinen hallien ylläpito, ruudukkopohjat ja kartta: [SPEC-V2.md](SPEC-V2.md) ja [BACKLOG-V2.md](BACKLOG-V2.md). Suunnitelma ei tarkoita, että ominaisuudet on toteutettu tai työitemit luotu PullPotentialiin.
+MVP:n jälkeinen hallien ylläpito, ruudukkopohjat ja kartta: [SPEC-V2.md](SPEC-V2.md) ja [BACKLOG-V2.md](BACKLOG-V2.md). PARK-V2-01:n toteutus kuvataan alla. Julkinen hallikartta, /garages/{id}-simulaatioreitti ja SSE kuuluvat PARK-V2-02:een; ne eivät sisälly tähän muutokseen.
+
+
+## PARK-V2-01: hallit ja pohja
+
+`/admin` säilyttää lukevat taulukot ja linkittää ylläpitoon. `/admin/garages` näyttää kaikkien hallien listan, `/admin/garages/new` luo hallin, `/admin/garages/{id}` muokkaa perustietoja ja `/admin/garages/{id}/layout` on 1–50 × 1–50 -editori. Ei authia tai rooleja. Uusi halli tarvitsee nimen, osoitteen ja pisteen; vanhan hallin puuttuva osoite/piste saa jäädä puuttumaan. Karttavirhe ei estä hallilistaa tai nykyistä porttisimulaatiota, mutta ei myöskään ohita uuden hallin pistevaatimusta.
+
+| Lisäreitti | Sopimus |
+| --- | --- |
+| POST `/api/garages` | `{name,address,latitude,longitude}` → 201 GarageDto; oma MVP-oletushinnasto, tyhjä 1×1-pohja, capacity=0. |
+| PUT `/api/garages/{id}` | Samat perustiedot → GarageDto; ei muuta hinnastoa, pohjaa tai käyttötiloja. |
+| GET `/api/garages/{id}/layout` | Kanoninen LayoutDto, hetkellinen poistokelpoisuus. |
+| PUT `/api/garages/{id}/layout` | Täysi pohja, odotettu versio ja nimenomaiset poistot → uusi kanoninen LayoutDto. |
+
+GarageDto laajenee yhteensopivasti kentillä `address`, `latitude`, `longitude`, `capacity`, `freeLots`, `occupiedLots`, `unknownLots`, `isFull`. Puuttuva piste on null, ei (0,0). Occupied ja Unknown lasketaan erikseen vain aktiivisista paikoista; Visit-määrä ei ole paikkaluku. isFull tarkoittaa freeLots==0, myös tyhjässä hallissa.
+
+LayoutDto: `{garageId,width,height,version,cells:[{x,y,type,lotId}],lots:[{id,number,currentStatus,canRemove}]}`. Koordinaatit alkavat nollasta; type on `Empty`, `Road` tai `ParkingLot`. JSON-pohjassa ei säilytetä tilan tai numeron rinnakkaiskopiota. GET lukee version/pohjan/paikat yhdellä SQL-lauseella. PUT: `{expectedVersion,width,height,cells:[{x,y,type,lotId?,number?}],removedLotIds:[]}`. Jokainen ruutu annetaan kerran; Empty/Road ei sisällä ID:tä/numeroa, vanhalla paikalla ovat molemmat, uudella lotId=null ja number=null automaattiin tai positiivinen käsin valittu numero. removedLotIds vastaa täsmälleen pois jätettyjä aktiivisia paikkoja. Pelkkä pienennys/omission ei poista paikkaa. Onnistunut vastaus sisältää palvelimen luomat oikeat ID:t ja kasvatetun version.
+
+Muokkaus on paikallinen luonnos: ajorata, pysäköintipaikka, pyyhekumi, klikkaus/näppäimistö ja pointer-veto. Ei alueentäyttöä. Siirto menee tyhjään ruutuun; numeroa voi muuttaa. Paikkojen yli ei pienennetä; ulkopuolisen ajoradan hävitys vahvistetaan. Peruuta palauttaa tallennetun pohjan, poistuminen/reload varoittaa ja tallennusvirhe säilyttää luonnoksen. Muutokset eivät lähetä kirjoitusta ennen Tallenna-toimintoa.
+
+### Invariantit ja luovutus PARK-V2-02:lle
+
+- `ParkingLot.IsActive` on nykykapasiteetin, listojen ja paikkakomentojen eksplisiittinen ehto. Ei globaalia query filteriä: historia ja FK-suhteet pysyvät luettavina. Eläköinti ei fyysisesti poista riviä. Eläköity ID → LOT_NOT_FOUND; vanhan numeron voi käyttää uudelleen eri ID:llä.
+- Vain Free ja ilman Active Parkingia voidaan eläköidä. Occupied, Unknown ja ristiriitainen Free+Active Parking → LOT_REMOVAL_CONFLICT/409. Siirto/numeron muutos säilyttävät ID:n, tilan ja historian myös käytössä olevalla paikalla.
+- ReadCommitted, hallin FOR UPDATE ensin ja aktiiviset paikat ID-järjestyksessä; sama sopimus simulaatiolle. Versio/poistoehdot tarkistetaan lukon jälkeen. Numerovaihto käyttää vapaita positiivisia väliaikaisnumeroita saman transaktion sisällä; osittainen uniikki-indeksi pysyy voimassa. Automaatti valitsee pienimmät vapaat positiiviset numerot lopullisesta aktiivijoukosta y/x-järjestyksessä. Ei tuotannon muistilukkoa.
+- `GarageManagementService.WriteAsync` ja `ParkingService.WriteAsync` palauttavat vasta commitin jälkeen: seuraavan itemin SSE julkaistaan vasta onnistuneen commitin jälkeen. Tässä ei ole SSE-julkaisijaa.
+- Virheet: INVALID_GARAGE/INVALID_LAYOUT/LOT_NUMBER_CONFLICT 400, GARAGE_NOT_FOUND/LOT_NOT_FOUND 404 (myös risti-ID), LAYOUT_VERSION_CONFLICT/LOT_REMOVAL_CONFLICT 409. Tuntematon tallennusvika ei muutu onnistumiseksi.
+- Migraatio `GarageLayouts` säilyttää nykyiset ID:t, numerot, tilat, hinnastot ja Visit/Parkingit. Number/Id-järjestyksen pohja: enintään 50 paikkaa/rivi, tyhjä halli 1×1. Yli 2500 lähtöpaikkaa aiheuttaa selkeän virheen, ei typistystä tai reset-seediä. Puuttuvia perustietoja ei keksitä. Todellinen PostgreSQL-migraatioajo on vielä ajamatta.
+
+### Jaettu karttakomponentti ja verkkoriippuvuus
+
+`GarageMap.vue` käyttää lukittua **MapLibre GL JS 6.14.0** -kirjastoa, ei mock-karttaa. Props: `latitude`, `longitude` (nullable), `label` (hallin nimi), `selectable` (oletus false); `select` antaa `{latitude,longitude}` klikkauksesta tai näppäimistöllä käytettävästä näkyvän keskipisteen valinnasta. Puuttuva piste ei tee oletusmerkkiä. Lataus-, WebGL-/verkkovirhe ja retry näkyvät; unmount poistaa kuuntelijat, markkerin ja map-resurssit myös kesken laiskan importin. Hallilista on responsiivinen kartasta riippumaton vaihtoehto.
+
+Style on `https://tiles.openfreemap.org/styles/liberty` ([OpenFreeMap quick start](https://openfreemap.org/quick_start/), tarkistettu 14.10.2026). `services/mapLibre.ts` tuo paikallisesti bundlatun workerin Viten `?worker&url`-tuonnilla ja asettaa `setWorkerUrl`-arvon quick startin mukaisesti. Nuxt lataa kirjaston CSS:n. Omaa provider-frameworkia tai API-avainta ei tarvita. Kartta tarvitsee verkosta stylen, tiilet, fontit ja spritet; niille ei luvata offline-toimintaa tai saatavuutta. Testit injektoivat loader-stubin eivätkä hae karttaa verkosta.
+
+MapLibren lähdeattribuutiota ei poisteta: **OpenFreeMap**, **© OpenMapTiles**, **Data from OpenStreetMap**, lähteiden linkit säilyttäen. Käyttöehdot ja attribuutiot: [OpenFreeMap](https://openfreemap.org/), [Terms of Service](https://openfreemap.org/tos/), [MapLibre Map API](https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/). Viralliset sivut luettiin HTTP:llä, koska Context7-työkalua ei ollut tarjolla. Palvelu on as-is/as-available, voi muuttua tai päättyä eikä anna saatavuus-/tarkkuustakuuta; integroijalla tulee olla ehtojen mukainen ikä ja organisaation valtuutus. Noudata lähteiden lisenssejä, laillista käyttöä ja palvelun kuormitusrajoja; offline-keräilyä ei ole toteutettu. Ulkoiset pyynnöt/CDN voivat kulkea Cloudflaren kautta. Asetuksissa ei ole salaisuuksia.

@@ -9,10 +9,27 @@ namespace MiettisPark.Api.Controllers;
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
 [Route("api/garages")]
-public sealed class GaragesController(ParkingService service) : ControllerBase
+public sealed class GaragesController(ParkingService service, GarageManagementService management) : ControllerBase
 {
     [HttpGet]
     public Task<List<GarageDto>> GetGarages(CancellationToken cancellationToken) => service.GetGaragesAsync(cancellationToken);
+
+    [HttpPost]
+    [ProducesResponseType(typeof(GarageDto), StatusCodes.Status201Created)]
+    public async Task<ActionResult<GarageDto>> Create(GarageRequest request, CancellationToken cancellationToken)
+    {
+        var garage = await management.CreateAsync(request, cancellationToken);
+        return Created($"/api/garages/{garage.Id}/layout", garage);
+    }
+
+    [HttpPut("{garageId:int}")]
+    public Task<GarageDto> Update(int garageId, GarageRequest request, CancellationToken cancellationToken) => management.UpdateAsync(garageId, request, cancellationToken);
+
+    [HttpGet("{garageId:int}/layout")]
+    public Task<LayoutDto> GetLayout(int garageId, CancellationToken cancellationToken) => management.GetLayoutAsync(garageId, cancellationToken);
+
+    [HttpPut("{garageId:int}/layout")]
+    public Task<LayoutDto> SaveLayout(int garageId, LayoutRequest request, CancellationToken cancellationToken) => management.SaveLayoutAsync(garageId, request, cancellationToken);
 
     [HttpGet("{garageId:int}/availability")]
     public Task<AvailabilityDto> GetAvailability(int garageId, CancellationToken cancellationToken) => service.GetAvailabilityAsync(garageId, cancellationToken);

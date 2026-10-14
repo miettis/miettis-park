@@ -15,10 +15,11 @@ public sealed class ParkingLotConfiguration : IEntityTypeConfiguration<ParkingLo
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).HasColumnName("id");
         builder.Property(x => x.ParkingGarageId).HasColumnName("parking_garage_id");
+        builder.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
         builder.Property(x => x.Number).HasColumnName("number");
         builder.Property(x => x.CurrentStatus).HasColumnName("current_status")
             .HasConversion<string>().HasMaxLength(20);
-        builder.HasIndex(x => new { x.ParkingGarageId, x.Number }).IsUnique();
+        builder.HasIndex(x => new { x.ParkingGarageId, x.Number }).IsUnique().HasFilter("is_active = true");
         builder.HasOne(x => x.ParkingGarage).WithMany(x => x.Lots)
             .HasForeignKey(x => x.ParkingGarageId).OnDelete(DeleteBehavior.Restrict);
 

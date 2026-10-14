@@ -4,6 +4,7 @@ public sealed class ParkingLot
 {
     public int Id { get; set; }
     public int ParkingGarageId { get; set; }
+    public bool IsActive { get; set; } = true;
     public int Number { get; set; }
     public ParkingLotStatus CurrentStatus { get; set; } = ParkingLotStatus.Free;
     public ParkingGarage ParkingGarage { get; set; } = null!;

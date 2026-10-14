@@ -6,7 +6,7 @@ import LotCard from '../components/LotCard.vue'
 import { garageApiKey, type GarageApi } from '../services/garageApi'
 import type { ActiveParkingDto, ActiveVisitDto, AvailabilityDto, EntryDto, GarageDto, LotDto, ReceiptDto } from '../types/garage'
 
-const garages: GarageDto[] = [{ id: 1, name: 'Keskustan pysäköinti' }]
+const garages: GarageDto[] = [{ id: 1, name: 'Keskustan pysäköinti', address: null, latitude: null, longitude: null, capacity: 0, freeLots: 0, occupiedLots: 0, unknownLots: 0, isFull: false }]
 const initialLots: LotDto[] = [
   { id: 11, number: 1, currentStatus: 'Free' },
   { id: 12, number: 2, currentStatus: 'Occupied' },
