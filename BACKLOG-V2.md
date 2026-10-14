@@ -27,7 +27,7 @@ Siirrä SPEC-V2 ja hyväksytyn MVP:n lyhyt tekninen luovutus knowledgeen backlog
 
 Toteuta hallin luonti/perustietojen muokkaus sekä yksikerroksinen grid-editori /admin-osioon. Nimi, osoite ja kartalta valittava piste; osoitehakua ei tarvita. Maalaustyökalut ajorata/parkkipaikka/pyyhekumi, mitat 1–50, erillinen tallennus/peruutus, automaattinen numerointi sekä numeron muutos ja olemassa olevan paikan siirtäminen.
 
-Sisällytä tarvittava EF-migraatio, API/service/DTO:t, Vue-komponentit ja testit. Suunnittele karttakomponentti niin, että seuraava item käyttää samaa karttatoimittajaa. Ei irrallista karttapalvelu-frameworkia, kirjastojen vertailuprojektia tai infraremonttia.
+Sisällytä tarvittava EF-migraatio, API/service/DTO:t, Vue-komponentit ja testit. Toteuta karttakomponentti **MapLibre GL JS** -kirjastolla ja **OpenFreeMap**-tiilillä; seuraava item käyttää samaa komponenttia ja taustakarttaa. Ei irrallista karttapalvelu-frameworkia, kirjastojen vertailuprojektia tai infraremonttia.
 
 ### Hyväksyntä/checklist
 
@@ -42,7 +42,7 @@ Sisällytä tarvittava EF-migraatio, API/service/DTO:t, Vue-komponentit ja testi
 - [ ] Vapaan paikan poistuminen kapasiteetista säilyttää historian ja viiteavaimet; aktiivisten numeroiden uniikki-indeksi vastaa uutta mallia.
 - [ ] Paikalliset palvelutestit kattavat stale-version-, rollback- ja poisto-vs-käyttöönotto-konfliktipolut; offline-malli/SQL tarkistetaan. Oikean PostgreSQL:n kilpailut jäävät myöhempään ihmisen tarkistukseen.
 - [ ] Offline-migraatio-/mallitarkistus ja paikalliset historiatestit sisältävät MVP:n historiallisen ja aktiivisen pysäköinnin; oikea migraatioajo myöhemmin.
-- [ ] Karttatoimittaja, attribuutio, verkkoriippuvuus ja mahdollinen avain dokumentoitu. Ei oikeiden salaisuuksien versionhallintaa.
+- [ ] **MapLibre GL JS + OpenFreeMap** käytössä; käyttöehdot, vaadittu attribuutio, verkkoriippuvuus ja asetukset dokumentoitu. Ei oikeiden salaisuuksien versionhallintaa.
 - [ ] Fokusoidut UI-/service-testit, backend/frontend-tarkistukset ja offline OpenAPI ajettu. Luovutus seuraavalle: layout DTO/version, paikkojen aktiivisuusehto ja karttakomponentin käyttö.
 
 **Delegointi:** Lead omistaa migraation ja transaktion; Developer toteuttaa sovitun grid-editorin tai rajatut testi-/UI-osat vahvistetulla DTO-sopimuksella.
@@ -51,7 +51,7 @@ Sisällytä tarvittava EF-migraatio, API/service/DTO:t, Vue-komponentit ja testi
 
 **Task; P0; keskisuuri; riippuvuus PARK-V2-01.**
 
-Toteuta /-sivulle hallien kartta ja listaus. Karttamerkissä nimi/osoite ja esimerkiksi 3/5 varattu, Unknown erikseen. Merkistä/listasta suoraan /garages/{id}-näkymään. Näytä tallennettu ruudukko värikoodattuna ja kytke siihen MVP:n simulaatiotoiminnot ja kuitti. Kartta/editori käyttävät samaa sovittua karttakomponenttia.
+Toteuta /-sivulle hallien kartta ja listaus. Karttamerkissä nimi/osoite ja esimerkiksi 3/5 varattu, Unknown erikseen. Merkistä/listasta suoraan /garages/{id}-näkymään. Näytä tallennettu ruudukko värikoodattuna ja kytke siihen MVP:n simulaatiotoiminnot ja kuitti. Kartta/editori käyttävät samaa **MapLibre GL JS + OpenFreeMap** -karttakomponenttia.
 
 ### Hyväksyntä/checklist
 

@@ -41,7 +41,7 @@ Karttamerkki ja listaus näyttävät esimerkiksi **3/5 varattu**. Kokonaismäär
 
 Hallin nimi, osoite ja käyttötilanne näkyvät karttamerkin yhteydessä; pienen näytön listaus sisältää samat tiedot. Merkki toimii myös näppäimistöltä ja avaa suoraan /garages/{id}. Kartta sovitetaan hallien sijainteihin. Ei käyttäjän paikannusta, ajoreittiohjeita tai sijainnin seurantaa.
 
-Karttakirjasto ja taustakartan toimittaja valitaan toteutuksen designissa. Dokumentoi käyttöehdot, vaaditut attribuutiot, verkkoriippuvuus ja mahdollinen avain. Älä keksi API-avainta, julkista palvelua tai palvelulupausta. Ulkoisen palvelun saatavuus ei saa estää hallilistan tai simulaation käyttöä. Kartta tarvitsee verkkoyhteyden; offline-karttoja ei vaadita.
+Karttakirjasto on **MapLibre GL JS**, ja taustakartta käyttää **OpenFreeMap**-tiiliä. Tämä on sovittu teknologiavalinta; älä vaihda kirjastoa/toimittajaa tai tee vaihtoehtojen vertailuprojektia. Dokumentoi käyttöehdot, vaaditut attribuutiot, verkkoriippuvuus ja mahdollinen avain. Älä keksi API-avainta, julkista palvelua tai palvelulupausta. Ulkoisen palvelun saatavuus ei saa estää hallilistan tai simulaation käyttöä. Kartta tarvitsee verkkoyhteyden; offline-karttoja ei vaadita.
 
 ## Ruudukkopohja ja editori
 
