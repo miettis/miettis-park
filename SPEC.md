@@ -1,5 +1,12 @@
 # Pysäköintihallisimulaation spesifikaatio
 
+## Agenttityön hyväksyntä ilman ulkoisia palveluja — 14.10.2026
+Tehtävien toteutus ja valmistuminen eivät edellytä käynnissä olevaa PostgreSQL:ää, Docker-daemonia, erillistä testikantaa/yhteysmerkkijonoa, selainajuria, karttapalvelua tai ihmisen ennakkoon tekemää hyväksyntää. Aloita ja jatka toteutusta niiden puuttumisesta huolimatta; älä pyydä clarificationia tai jätä koko tehtävää tekemättä tästä syystä. .NET/Node ja projektin tavallinen riippuvuuksien restore/asennus ovat edelleen buildin edellytyksiä.
+Tuotantosovellus käyttää edelleen EF Corea/PostgreSQL:ää; älä korvaa sitä muistivarastolla tai vaihda stackia. Pakollinen näyttö: backend-build ja aidot palvelu-/API-testit testikellolla sekä paikallisilla testituplilla tai testiin rajatulla embedded-providerilla, frontend lint/typecheck/build ja mahdolliset DOM-komponenttitestit sekä offline OpenAPI/migraatio-SQL/mallin tarkistus. Testit eivät saa tarvita palvelinprosessia, verkkopalvelua, konttia tai salaisia asetuksia. Kartan ulkoinen riippuvuus korvataan testeissä stubilla.
+Oikean PostgreSQL:n lukitus-/kilpailu-/migraatioajot, Docker-käynnistys, oikea selain/karttapalvelu ja restart-pysyvyys ovat erillisiä myöhempiä ihmisen tarkistuksia, eivät tämän agenttityön submission-/checklist-portteja. Dokumentoi ne ajamattomiksi. Älä väitä InMemory/SQLite-testin todistavan PostgreSQL-semanttiikkaa, merkitse skipped-integraatiotestiä läpäistyksi tai heikennä tuotannon invariantteja. Paikallinen hyväksyntä ja vielä vahvistamaton ympäristökäyttäytyminen erotetaan.
+Jos hyväksytyssä designissa/pysyvässä checklistissä on vanha ulkoisen ympäristön vaatimus, tee tämän käyttäjän hyväksymän rajauksen mukainen design amendment ja päivitä checklist vaatimuksen sisältöä vastaavaksi. Älä kuittaa tekemätöntä ulkoista tarkistusta tehdyksi. Työ voi valmistua paikallisella näytöllä ja dokumentoidulla myöhemmän validoinnin listalla.
+
+
 Päiväys: 14.10.2026. Dokumentti erottaa tehtävän vaatimukset ja toteutusta varten tehdyt oletukset. Oletukset vahvistetaan ennen käsin tehtävää lähtöpohjaa.
 
 ## 1. Tavoite ja rajaus
@@ -141,11 +148,11 @@ Jokainen toiminnallinen työpaketti lisää omat testinsä. Loppuhyväksyntä ei
 - Täsmälleen 2 min → Duplicate; 2 min + 1 tick → uusi Visit ja vanha Interrupted ilman keksittyä EndAt/Costia.
 - Hallikäynnin ulosajo tai keskeytys ei muuta paikkatietoa. Vain paikan oma vapautushavainto sulkee Parkingin ja vapauttaa paikan; se toimii myös ilman VisitId:tä.
 - Puuttuva sisäänajo → asiakaspalvelu, ei avautumista tai veloitusta. Ulosajon toisto ei veloita uudelleen.
-- Rinnakkaiset paikkavalinnat ja sisäänajot oikealla PostgreSQL:llä ja erillisillä DbContext-yhteyksillä. InMemory/SQLite ei todista PostgreSQL-lukitusta tai osittaisia indeksejä.
+- Paikalliset paikkavalintojen ja sisäänajojen invariantti-/konfliktipolkutestit sekä EF-mallin/SQL:n offline-tarkistus. Todellisen PostgreSQL-lukituksen ja kilpailujen tarkistus jää myöhemmäksi; testitupla ei todista tietokantamoottorin semantiikkaa.
 - Kilpailun jälkeen korkeintaan yksi Active Parking per paikka ja per annettu VisitId, ja häviäjälle hallittu vastaus. Null-VisitId:t eivät estä muiden paikkojen tunnistamattomia pysäköintejä. Saman rekisterin sisäänajokilpailu ei luo kahta Active Visitiä.
-- Yhden originin konttikäyttö ja SPA-reitin refresh ilman erillistä Node-palvelua.
+- Yhden originin tuotantokäyttö säilyy toteutusvaatimuksena. Kontti-/selain-refresh tarkistetaan myöhemmin ihmisen toimesta, ei agentin valmistumisporttina.
 
-Build/test ei korvaa selain- tai konttihyväksyntää. Suoritettu, epäonnistunut ja ympäristön vuoksi suorittamatta jäänyt tarkistus erotellaan. Ei valmiusväitettä pelkän agentin vakuutuksen perusteella.
+Agenttityö hyväksytään paikallisilla build/test/tyypitys/lint/OpenAPI-tarkistuksilla. Selain-/kontti-/PostgreSQL-hyväksyntä kirjataan erilliseksi myöhemmäksi ihmisen tarkistukseksi eikä estä submissionia. Valmiusväite yksilöi suoritetun näytön ja ajamattomat ympäristötarkistukset.
 
 ## 8. Pois rajatut / seuraavat ominaisuudet
 

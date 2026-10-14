@@ -11,7 +11,7 @@ Tämä tehdään ihmisen ohjaamana ennen PullPotential-milestonea. Pohja ei kuul
 - [x] Yhteysmerkkijono/ympäristöasetukset ilman repoon tallennettuja salaisuuksia. TimeProvider.System rekisteröitynä tai rekisteröitävissä palveluille.
 - [x] Dockerfile rakentaa frontendin ja backendin yhteen runtime-imageen. Runtime ei tarvitse Nodea; PostgreSQL on erillinen palvelu.
 - [x] GitHub Actions rakentaa/julkaisee imagen semanttisista versiontageista. Sovitaan esimerkiksi v1.2.3 ja v1.2.3-rc.1; virheellinen tagi ei julkaise. Registry/nimi/tagit dokumentoidaan, salaisuudet ympäristössä.
-- [ ] Paikallinen käynnistys, migraatio ja kontin tietokantayhteys kokeiltu. Mahdollinen Compose kuuluu tähän pohjaan, ei sovellusbacklogiin.
+- [ ] Myöhempi ihmisen ympäristötarkistus, EI agenttityön aloitusehto: oikea PostgreSQL-migraatio ja kontin tietokantayhteys. Agentti toteuttaa/testaa tehtävät paikallisesti ilman näitä palveluja.
 - [x] READMEen toteutuneen rakenteen start/build/lint/migraatio/konttikomennot; ei arvaamalla kirjattuja komentoja.
 - [x] SPEC:n oletukset vahvistettu/muutettu: 2 minuutin raja, kapasiteetin johtaminen, CurrentStatus, poikkeavien käyntien sulkeminen sekä itsenäiset paikkahavainnot. Ulosajo ei vapauta paikkaa; täysi halli on saatavuustieto eikä sisäänajon esto.
 - [ ] Pohja commitoitu ja tunniste kirjattu. Agenttityö alkaa tunnetusta toimivasta tilasta.

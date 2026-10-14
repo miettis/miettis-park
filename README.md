@@ -130,4 +130,8 @@ Pois rajattu: auth, oikea maksaminen/portit/kamerat, varaukset, huoltotilat, mon
 
 Milestone/59 sisältää PARK-01 (`2715700`, PR #1), PARK-02 (`4a98c71`, PR #2) ja PARK-04 (`b0986bf`, PR #3). PARK-03/item 1119 on tällä hetkellä toteutus/submissionissa, **ei vielä integroitu**: PullPotential finalisoi sen vasta submissionin jälkeen. Milestone on InProgress, ei julkaistu release. Nykyrevision kolmen verification-avaimen lopputulos ja pysyvä checklist/submission ovat platformissa; aiempien itemien näyttö ei korvaa niitä.
 
-Seuraavaksi ihminen ajaa VALIDATION.md:n selain/kontti/PostgreSQL/restart-ohjeet. Tarkista myös tunnetut transitiiviset npm-audit-havainnot ennen kehityspalvelimen verkkoaltistusta sekä henkilötietojen säilytys/suojaus ennen oikeaa käyttöä. Julkaisusta päätetään erikseen; simulaatio ei väitä tuotantovalmiutta.
+GitHub Actions julkaisee imagen `ghcr.io/<owner>/<repository>` semanttisesta tagista, esimerkiksi `v1.2.3` tai `v1.2.3-rc.1`. Virheellinen versiotagi pysäyttää työn ennen julkaisua. Docker-tagit ovat versio ilman v-etuliitettä, `sha-<12 merkkiä>` ja vain vakaalle versiolle `latest`. SemVerin mahdollinen `+build` tallennetaan Docker-tagissa `_build`-muodossa; build-metadatatagi ei muuta latestia. Julkaisu käyttää GitHubin GITHUB_TOKENia ja packages:write-oikeutta. Imagea ei ole vielä julkaistu eikä workflowta ajettu GitHubissa.
+
+## V2-suunnitelma
+
+MVP:n jälkeinen hallien ylläpito, ruudukkopohjat ja kartta: [SPEC-V2.md](SPEC-V2.md) ja [BACKLOG-V2.md](BACKLOG-V2.md). Suunnitelma ei tarkoita, että ominaisuudet on toteutettu tai työitemit luotu PullPotentialiin.
