@@ -140,3 +140,13 @@ export interface ApiError extends Error {
   status?: number
   problem?: ProblemDetailsDto
 }
+
+export interface ImageEntryDto {
+  visitId: number
+  licenseNumber: string
+  startAt: string
+  outcome: EntryOutcome
+  effectiveOccurredAt: string
+  gateOpened: boolean
+  recognizedLicenseNumber: string
+}

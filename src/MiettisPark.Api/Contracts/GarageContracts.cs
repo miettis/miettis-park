@@ -33,3 +33,5 @@ public sealed record EntryDto(int VisitId, string LicenseNumber, DateTimeOffset 
 public sealed record LotEntryDto(int ParkingId, int LotId, int? VisitId, DateTimeOffset StartAt, DateTimeOffset EffectiveOccurredAt);
 public sealed record LotExitDto(int LotId, int? ParkingId, bool MissingParkingObservation, DateTimeOffset EffectiveOccurredAt);
 public sealed record ReceiptDto(int VisitId, string LicenseNumber, DateTimeOffset StartAt, DateTimeOffset EndAt, DateTimeOffset ClosedAt, TimeSpan Duration, decimal Cost, DateTimeOffset EffectiveOccurredAt, string Currency = "EUR", bool GateOpened = true);
+
+public sealed record ImageEntryDto(int VisitId, string LicenseNumber, DateTimeOffset StartAt, EntryOutcome Outcome, DateTimeOffset EffectiveOccurredAt, bool GateOpened, string RecognizedLicenseNumber);

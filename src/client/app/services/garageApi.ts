@@ -3,6 +3,7 @@ import type {
   ActiveVisitDto,
   AvailabilityDto,
   EntryDto,
+  ImageEntryDto,
   GarageDto,
   GarageInputDto,
   GarageLayoutDto,
@@ -20,6 +21,7 @@ export interface GarageApi {
   getActiveVisits(garageId: number, signal?: AbortSignal): Promise<ActiveVisitDto[]>
   getActiveParkings(garageId: number, signal?: AbortSignal): Promise<ActiveParkingDto[]>
   enterGarage(garageId: number, licenseNumber: string, occurredAt: string | null): Promise<EntryDto>
+  enterGarageFromImage(garageId: number, image: File, occurredAt: string | null): Promise<ImageEntryDto>
   exitGarage(garageId: number, licenseNumber: string, occurredAt: string | null): Promise<ReceiptDto>
   enterLot(garageId: number, lotId: number, visitId: number | null, occurredAt: string | null): Promise<LotEntryDto>
   exitLot(garageId: number, lotId: number, occurredAt: string | null): Promise<LotExitDto>
@@ -38,7 +40,7 @@ export class HttpGarageApi implements GarageApi, GarageManagementApi {
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await fetch(path, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...init?.headers }
+      headers: init?.body instanceof FormData ? init.headers : { 'Content-Type': 'application/json', ...init?.headers }
     })
 
     if (!response.ok) {
@@ -96,6 +98,13 @@ export class HttpGarageApi implements GarageApi, GarageManagementApi {
       method: 'POST',
       body: JSON.stringify({ licenseNumber, occurredAt })
     })
+  }
+
+  enterGarageFromImage(garageId: number, image: File, occurredAt: string | null): Promise<ImageEntryDto> {
+    const body = new FormData()
+    body.append('image', image)
+    if (occurredAt !== null) body.append('occurredAt', occurredAt)
+    return this.request(`/api/garages/${garageId}/entries/from-image`, { method: 'POST', body })
   }
 
   exitGarage(garageId: number, licenseNumber: string, occurredAt: string | null): Promise<ReceiptDto> {

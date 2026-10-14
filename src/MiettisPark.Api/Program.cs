@@ -39,6 +39,14 @@ builder.Services.AddSingleton<IGarageEventPublisher>(services => services.GetReq
 builder.Services.AddSingleton<ParkingFeeCalculator>();
 builder.Services.AddScoped<IParkingWriteTransactionFactory, ParkingWriteTransactionFactory>();
 builder.Services.AddScoped<ParkingService>();
+builder.Services.AddScoped<ImageEntryService>();
+builder.Services.AddSingleton<ImageOperationLimiter>();
+builder.Services.AddSingleton<MiettisPark.Api.Services.PlateRecognition.ImageUploadReader>();
+builder.Services.AddSingleton<MiettisPark.Api.Services.PlateRecognition.ImageValidator>();
+builder.Services.AddOptions<MiettisPark.Api.Services.PlateRecognition.PlateRecognitionOptions>().BindConfiguration("PlateRecognition");
+builder.Services.AddHttpClient<MiettisPark.Api.Services.PlateRecognition.ILicensePlateReader, MiettisPark.Api.Services.PlateRecognition.OpenRouterLicensePlateReader>()
+    .ConfigureHttpClient(client => client.Timeout = Timeout.InfiniteTimeSpan)
+    .RemoveAllLoggers();
 builder.Services.AddScoped<GarageManagementService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<ParkingDbContext>(options =>
@@ -64,6 +72,34 @@ builder.Services.AddOpenApi("v1", options =>
             schema.Type = JsonSchemaType.String | JsonSchemaType.Null;
             schema.Format = "date-time";
             schema.Description = "ISO 8601 timestamp with Z or an explicit UTC offset; omitted/null uses server time.";
+        }
+
+        return Task.CompletedTask;
+    });
+    options.AddOperationTransformer((operation, context, _) =>
+    {
+        if (context.Description.RelativePath?.EndsWith("entries/from-image", StringComparison.Ordinal) == true)
+        {
+            operation.RequestBody = new OpenApiRequestBody
+            {
+                Required = true,
+                Content = new Dictionary<string, OpenApiMediaType>
+                {
+                    ["multipart/form-data"] = new()
+                    {
+                        Schema = new OpenApiSchema
+                        {
+                            Type = JsonSchemaType.Object,
+                            Required = new HashSet<string> { "image" },
+                            Properties = new Dictionary<string, IOpenApiSchema>
+                            {
+                                ["image"] = new OpenApiSchema { Type = JsonSchemaType.String, Format = "binary", Description = "One fully decodable JPEG/PNG image, 1..8388608 bytes." },
+                                ["occurredAt"] = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time", Description = "ISO 8601 with Z or explicit offset; omitted uses server time frozen before recognition." }
+                            }
+                        }
+                    }
+                }
+            };
         }
 
         return Task.CompletedTask;

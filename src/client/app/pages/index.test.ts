@@ -5,7 +5,7 @@ import IndexPage from '../components/GarageSimulation.vue'
 import LotCard from '../components/LotCard.vue'
 import EventTimeInput from '../components/EventTimeInput.vue'
 import { garageApiKey, type GarageApi } from '../services/garageApi'
-import type { ActiveParkingDto, ActiveVisitDto, AvailabilityDto, EntryDto, GarageDto, LotDto, ReceiptDto } from '../types/garage'
+import type { ActiveParkingDto, ActiveVisitDto, AvailabilityDto, EntryDto, GarageDto, ImageEntryDto, LotDto, ReceiptDto } from '../types/garage'
 import { toEventTime } from '../utils/eventTime'
 
 const garages: GarageDto[] = [{ id: 1, name: 'Keskustan pysäköinti', address: null, latitude: null, longitude: null, capacity: 0, freeLots: 0, occupiedLots: 0, unknownLots: 0, isFull: false }]
@@ -39,6 +39,7 @@ class StubGarageApi implements GarageApi {
     }
     return { visitId, licenseNumber: normalized, startAt, outcome: this.entryOutcome, gateOpened: true, effectiveOccurredAt: '2026-10-14T10:00:00Z' }
   })
+  enterGarageFromImage = vi.fn(async (_garageId: number, _image: File, _occurredAt: string | null): Promise<ImageEntryDto> => ({ visitId: 31, licenseNumber: 'ABC123', startAt: '2026-10-14T12:00:00Z', outcome: 'Entry', effectiveOccurredAt: '2026-10-14T10:00:00Z', gateOpened: true, recognizedLicenseNumber: 'ABC123' }))
   exitGarage = vi.fn(async (_garageId: number, licenseNumber: string): Promise<ReceiptDto> => {
     if (this.failNextGarageExit) {
       this.failNextGarageExit = false

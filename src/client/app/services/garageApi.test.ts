@@ -35,6 +35,18 @@ describe('HttpGarageApi event time commands', () => {
     ])
   })
 
+  it('posts an image as multipart without overriding the browser boundary', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ visitId: 9 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const image = new File(['image'], 'plate.jpg', { type: 'image/jpeg' })
+    await new HttpGarageApi().enterGarageFromImage(7, image, '2026-10-14T13:30:45+03:00')
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('/api/garages/7/entries/from-image')
+    expect((init?.body as FormData).get('image')).toBe(image)
+    expect((init?.body as FormData).get('occurredAt')).toBe('2026-10-14T13:30:45+03:00')
+    expect(init?.headers).toBeUndefined()
+  })
+
   it('keeps legacy lot exit without a request body when server time is selected', async () => {
     const fetchMock = vi.fn().mockResolvedValue(response({ effectiveOccurredAt }))
     vi.stubGlobal('fetch', fetchMock)
