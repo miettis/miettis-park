@@ -1,0 +1,29 @@
+{
+  "name": "miettis-park-client",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.16.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "nuxt dev --host 127.0.0.1",
+    "build": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "lint": "eslint .",
+    "typecheck": "nuxt typecheck",
+    "openapi": "node ../../scripts/openapi.mjs"
+  },
+  "dependencies": {
+    "nuxt": "4.6.1",
+    "vue": "3.5.44"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "1.16.0",
+    "@types/node": "24.19.2",
+    "eslint": "10.5.0",
+    "typescript": "6.0.3",
+    "vue-tsc": "3.3.5"
+  }
+}

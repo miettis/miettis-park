@@ -1,0 +1,14 @@
+.git
+.github
+**/bin
+**/obj
+**/node_modules
+**/.nuxt
+**/.output
+.env
+.env.*
+**/appsettings.Local.json
+artifacts
+tests
+ui-mocks
+*.md
