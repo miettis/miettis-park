@@ -21,6 +21,7 @@ const context = vm.createContext({
   confirm: () => true,
   setTimeout: () => 1,
   clearTimeout() {},
+  setInterval() {},
 });
 vm.runInContext(script, context);
 function run(code) { return vm.runInContext(code, context); }
@@ -52,3 +53,17 @@ run('mapOff=true;render()');
 assert.ok(nodes.get('app').innerHTML.includes('Karttaa ei voitu ladata'));
 assert.ok(nodes.get('app').innerHTML.includes('Hallit lähialueella'));
 console.log('PASS: JS syntax, all views, counters, unknown/empty halls, editor guards, draft isolation, stable move IDs, resizing, escaping, map fallback');
+
+context.location.hash = '#map';
+run('mapOff=false;liveConnected=true;render()');
+const before = run('liveSequence');
+assert.equal(run('simulateLiveUpdate()'), true);
+assert.equal(run('liveSequence'), before + 1);
+assert.ok(nodes.get('app').innerHTML.includes('SSE-simulaatio'));
+run('liveConnected=false');
+assert.equal(run('simulateLiveUpdate()'), false);
+assert.equal(run('liveSequence'), before + 1);
+context.location.hash = '#edit/1';
+run('liveConnected=true');
+assert.equal(run('simulateLiveUpdate()'), false);
+console.log('PASS: simulated SSE refresh, offline pause, editor draft protection');

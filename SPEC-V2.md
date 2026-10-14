@@ -87,7 +87,20 @@ Säilytä MVP:n ProblemDetails + code -käytäntö; invalid input 400, tuntemato
 
 Migraatio säilyttää nykyisen hallin, paikkojen ID:t/numerot, Visit/Parking-historian ja hinnaston. Alusta olemassa oleville aktiivisille paikoille deterministinen pohja numeron/ID:n järjestyksessä, enintään 50 ruutua/rivi. MVP:n viisi paikkaa voi olla yhdellä rivillä. Älä resetoi tai seedaa nykyisiä rivejä uudelleen. Poikkeava yli 2500 paikan lähtödata raportoidaan, ei typistetä.
 
-Tilanne päivittyy onnistuneen simulaatiotoiminnon ja konfliktin jälkeen sekä käyttäjän Päivitä-painikkeella. Kartta hakee uuden yhteenvedon avattaessa/päivitettäessä. Ei SignalR/SSE:tä tai pakollista automaattipollausta.
+## Reaaliaikainen käyttötilanne (SSE)
+
+V2 käyttää Server-Sent Events -yhteyttä. Selain lähettää simulaatiokomennot edelleen tavallisina HTTP-pyyntöinä; SSE välittää palvelimelta tiedon tallennetusta muutoksesta karttaan, listaan ja avoimeen hallinäkymään. SignalR, viestivälittäjä tai erillinen palvelu eivät ole tarpeen.
+
+- Yksi jaettu EventSource-yhteys sovellusta/selaintabia kohden: GET /api/garages/events, Content-Type text/event-stream. Reitin toteutus ei muuta offline OpenAPI-generoinnin sivuvaikutuksettomuutta.
+- Lähetä garage-changed vasta onnistuneen tietokantatransaktion commitin jälkeen. Payload sisältää garageId:n ja muutoksen lajin (occupancy/layout/garage). Ei rekisterinumeroita tai käyntien henkilötietoja.
+- Tapahtuma on invalidointiviesti, ei laskurille lisättävä delta. Client hakee ajantasaisen halliyhteenvedon ja tarvittaessa avoimen hallin paikkatilat/pohjan. Karttamerkki, lista ja avoin paikkanäkymä päivittyvät samasta totuudesta. Duplikaatti ei kaksinkertaista lukuja.
+- Päivitys käynnistyy heti tapahtumasta; lyhyen tapahtumapurkauksen haut saa yhdistää. Vanhentunut/rinnakkainen HTTP-vastaus ei saa korvata uudempaa tilaa. Tilamuutos ei saa hävittää käyttäjän lomakesyötettä, valittua paikkaa tai tallentamatonta editoriluonnosta. Editorille näytetään tarvittaessa pohjan muutoksen ilmoitus ja tallennuksen concurrency-check säilyy.
+- Yhteyden avautuessa ja jokaisen uudelleenyhdistämisen jälkeen hae uusi täydellinen tilannekuva: katkon aikana tapahtuneita muutoksia ei tarvitse toistaa tapahtumahistoriasta. Kytke tapahtumakuuntelu ennen alkuhaun valmistumista ja käsittele sen aikana tuleva invalidointi, jotta aloituksen kilpailu ei hukkaa muutosta.
+- Näytä Reaaliaikainen / Yhteys katkennut, yhdistetään… / Tilanne voi olla vanhentunut. Säilytä viimeisin data katkon aikana. EventSource yrittää uudelleen; Päivitä-painike toimii varavaihtoehtona. Ei pakollista automaattipollausta tai kestävää tapahtumalokia.
+- Toteuta kevyt heartbeat, yhteyden sulkemisen peruutus, tilausten siivous ja rajattu lähetyspuskuri. Hidas/katkennut client ei saa estää simulaatiotransaktiota tai kasvattaa muistia rajattomasti. Tuotannon HTTP-proxy ei saa puskuroida streamia; tarvittavat asetukset dokumentoidaan.
+- Julkaise myös paikkamäärän/pohjan/hallin perustietojen tallennuksesta, jotta kartan kokonaismäärä ja hallilista päivittyvät. Pelkkä Visitin sisään-/ulosajo ei muuta varattujen paikkojen määrää.
+
+Pakolliset testit ovat palveluriippumattomia: paikallinen tapahtumajulkaisija/testitupla, API:n stream-kontrakti sekä clientin invalidointi-, duplikaatti-, vanhentuneen vastauksen ja reconnect-resync-testit. Testaa rollbackin julkaisemattomuus ja tilausten siivous. Ei oikean PostgreSQL:n, Dockerin tai selaimen vaatimusta. Kahden oikean selaimen ja tuotantoproxyn läpi tehtävä reaaliaikaisuustarkistus jää myöhemmäksi ihmisen ympäristöhyväksynnäksi.
 
 ## Hyväksyntä
 

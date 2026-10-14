@@ -27,3 +27,7 @@ Ylläpito erotellaan omaksi osioksi; rooleja tai kirjautumista ei ole. Oikean so
 ## Tarkistukset
 
 JavaScriptin syntaksi ja rajatut toimintopolut tarkistettu Node/DOM-stub-ajolla: node ui-mocks/v2/verify.cjs repojuuresta. Headless Chromella tarkistettu desktop-kartta ja editori: [kartta](preview-map.png), [editori](preview-editor.png). Stub-testi ei korvaa kaikkien hiiri-/kosketus-/näppäimistöpolkujen selaintestausta.
+
+## Reaaliaikaisuuden simulaatio
+
+Kartta ja paikkanäkymä saavat simuloidun muutoksen kuuden sekunnin välein. Simuloi muutos lähettää muutoksen heti; Katkaise yhteys pysäyttää sen ja Yhdistä uudelleen päivittää tilannekuvan. Editorin tai lomakkeen sisältöä ei korvata taustapäivityksillä. Tämä on paikallinen SSE-käyttäytymisen havainne, ei oikea EventSource/backend-yhteys; kaikki esimerkkidata nollautuu reloadissa.

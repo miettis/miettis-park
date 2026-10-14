@@ -63,11 +63,22 @@ Toteuta /-sivulle hallien kartta ja listaus. Karttamerkissä nimi/osoite ja esim
 - [ ] Paikkahavainnot toimivat auton yhdistämisellä ja ilman; Visitin päättyminen ei vapauta paikkaa. Reload ja Päivitä hakevat oikean tilanteen API:sta.
 - [ ] Hallikohtainen sisäänajo, paikan valinta/vapautus/vaihto, ulosajo ja kuitti toimivat kahdessa hallissa; ristiin viittaavat ID:t hylätään.
 - [ ] Täysi halli on edelleen saatavuustieto, ei sisäänajon esto. Hallikohtainen laskutus käyttää hallin hinnastoa.
-- [ ] Käyttötilan konfliktin jälkeen tilanne päivittyy; ei pakollista SignalR/SSE/pollausta.
+- [ ] Käyttötilan konfliktin jälkeen tilanne päivittyy; SSE välittää myös muista clienteistä tulevat muutokset.
 - [ ] Kartan attribuutio, responsiivinen listavaihtoehto, kenttälabelit ja näppäimistökäyttö huomioitu.
 - [ ] Normaalipolun ja virhetilojen testit sekä nykyisen revision build/test/lint/typecheck/OpenAPI-näyttö. Luovutus: reitit, päivityslogiikka ja tunnetut ympäristörajat.
 
 **Delegointi:** Lead kytkee hallikohtaisen simulaation ja tilakyselyt; Developer toteuttaa sovittua kartta/lista/pohjakuva-UI:ta tai komponenttitestejä.
+
+### PARK-V2-02:n reaaliaikaisuuden hyväksyntä
+
+Reaaliaikainen päivitys kuuluu tähän samaan toiminnalliseen pakettiin, ei erilliseen infrastruktuuri-itemiin. Noudata SPEC-V2:n SSE-sopimusta.
+
+- [ ] GET /api/garages/events tarjoaa yhden jaetun SSE-yhteyden; commitin jälkeinen garage-changed invalidointi päivittää karttamerkin, listan ja avoimen hallin paikkatilat.
+- [ ] Pohjan/paikkamäärän ja hallin perustietojen muutokset päivittyvät; Visit-muutos ei muuta paikkalaskuria.
+- [ ] Duplikaatit ja vanhentuneet HTTP-vastaukset eivät vääristä tilaa. Aktiivinen lomake, valinta ja tallentamaton editoriluonnos säilyvät.
+- [ ] Yhteystila näkyy, katko säilyttää viimeisen datan, reconnect hakee kokonaisen tilannekuvan eikä edellytä tapahtumahistorian replayta. Alkuhauissa ei hukata invalidointeja. Päivitä on varavaihtoehto.
+- [ ] Rollback ei julkaise tapahtumaa. Peruutus/tilausten siivous ja rajattu puskuri estävät resurssivuodot; ei henkilötietoja streamiin.
+- [ ] Paikalliset publisher/API/client-testit ajettu ilman PostgreSQL/Docker/selainpalvelua. Proxy-/kahden selaimen näyttö dokumentoitu myöhemmäksi.
 
 ## PARK-V2-03 – Rajattu v2-hyväksyntä ja luovutus
 
@@ -85,3 +96,5 @@ Aja kertynyt testistö ja hyväksy kokonainen polku: luo halli → valitse osoit
 - [ ] Ihmisen lopullinen hyväksyntä, milestone-release, semanttinen tagi ja image-julkaisu erotettu agentin toteutuksen valmistumisesta. Ei julkaisua ilman toimeksiantoa.
 
 Puuttuva Docker/PostgreSQL/selain/karttapalvelu kirjataan myöhemmän ihmisen tarkistukseksi; se ei edellytä clarificationia eikä estä agenttityön valmistumista. Agentti ei kuluta budjettia rajattomaan asentamiseen tai identtisiin retryihin.
+
+V2:n myöhempään ihmisen ympäristöhyväksyntään kuuluu kahden selaimen SSE-päivitys ja yhteyskatkosta palautuminen tuotantoproxyn läpi. Se ei estä agenttityön paikallista hyväksyntää.
