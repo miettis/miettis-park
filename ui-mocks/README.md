@@ -26,3 +26,7 @@ Tämä on suunnitteluprototyyppi, ei sovelluksen toteutus. Tila on vain muistiss
 - [Puuttuva sisäänajo](index.html?scenario=error#gate)
 
 [Desktop-esikatselu](preview.png). Mockupin JavaScriptin toimintopolut on tarkistettu erillisellä DOM-stub-testillä; tämä ei ole varsinaisen sovelluksen testinäyttöä.
+
+## V2-näkymät
+
+[Interaktiivinen v2-kokoelma](v2/index.html) · [näkymät ja käyttöohje](v2/README.md): hallikartta, paikkatilanne, hallien ylläpito ja maalauseditori.

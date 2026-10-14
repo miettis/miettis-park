@@ -80,3 +80,7 @@ docker compose up --build -d
 Sovellus: http://localhost:8080. Dockerfile rakentaa frontendin ja backendin yhteen ei-root-runtime-imageen; PostgreSQL on erillinen Compose-palvelu ja data nimetyssä volumessa. `docker compose down` säilyttää datan. `APP_PORT` ja `POSTGRES_PORT` ovat muutettavissa .env-tiedostossa.
 
 GitHub Actions julkaisee imagen `ghcr.io/<owner>/<repository>` semanttisesta tagista, esimerkiksi `v1.2.3` tai `v1.2.3-rc.1`. Virheellinen versiotagi pysäyttää työn ennen julkaisua. Docker-tagit ovat versio ilman v-etuliitettä, `sha-<12 merkkiä>` ja vain vakaalle versiolle `latest`. SemVerin mahdollinen `+build` tallennetaan Docker-tagissa `_build`-muodossa; build-metadatatagi ei muuta latestia. Julkaisu käyttää GitHubin GITHUB_TOKENia ja packages:write-oikeutta. Imagea ei ole vielä julkaistu eikä workflowta ajettu GitHubissa.
+
+## V2-suunnitelma
+
+MVP:n jälkeinen hallien ylläpito, ruudukkopohjat ja kartta: [SPEC-V2.md](SPEC-V2.md) ja [BACKLOG-V2.md](BACKLOG-V2.md). Suunnitelma ei tarkoita, että ominaisuudet on toteutettu tai työitemit luotu PullPotentialiin.

@@ -1,5 +1,12 @@
 # PullPotential-backlog
 
+## Agenttityön hyväksyntä ilman ulkoisia palveluja — 14.10.2026
+Tehtävien toteutus ja valmistuminen eivät edellytä käynnissä olevaa PostgreSQL:ää, Docker-daemonia, erillistä testikantaa/yhteysmerkkijonoa, selainajuria, karttapalvelua tai ihmisen ennakkoon tekemää hyväksyntää. Aloita ja jatka toteutusta niiden puuttumisesta huolimatta; älä pyydä clarificationia tai jätä koko tehtävää tekemättä tästä syystä. .NET/Node ja projektin tavallinen riippuvuuksien restore/asennus ovat edelleen buildin edellytyksiä.
+Tuotantosovellus käyttää edelleen EF Corea/PostgreSQL:ää; älä korvaa sitä muistivarastolla tai vaihda stackia. Pakollinen näyttö: backend-build ja aidot palvelu-/API-testit testikellolla sekä paikallisilla testituplilla tai testiin rajatulla embedded-providerilla, frontend lint/typecheck/build ja mahdolliset DOM-komponenttitestit sekä offline OpenAPI/migraatio-SQL/mallin tarkistus. Testit eivät saa tarvita palvelinprosessia, verkkopalvelua, konttia tai salaisia asetuksia. Kartan ulkoinen riippuvuus korvataan testeissä stubilla.
+Oikean PostgreSQL:n lukitus-/kilpailu-/migraatioajot, Docker-käynnistys, oikea selain/karttapalvelu ja restart-pysyvyys ovat erillisiä myöhempiä ihmisen tarkistuksia, eivät tämän agenttityön submission-/checklist-portteja. Dokumentoi ne ajamattomiksi. Älä väitä InMemory/SQLite-testin todistavan PostgreSQL-semanttiikkaa, merkitse skipped-integraatiotestiä läpäistyksi tai heikennä tuotannon invariantteja. Paikallinen hyväksyntä ja vielä vahvistamaton ympäristökäyttäytyminen erotetaan.
+Jos hyväksytyssä designissa/pysyvässä checklistissä on vanha ulkoisen ympäristön vaatimus, tee tämän käyttäjän hyväksymän rajauksen mukainen design amendment ja päivitä checklist vaatimuksen sisältöä vastaavaksi. Älä kuittaa tekemätöntä ulkoista tarkistusta tehdyksi. Työ voi valmistua paikallisella näytöllä ja dokumentoidulla myöhemmän validoinnin listalla.
+
+
 14.10.2026. Työpaketit ovat valmistelua tuontiin, eivät vielä PullPotentialin tietokantaan luotuja tehtäviä. [STARTING-POINT.md](STARTING-POINT.md) on ajoa edeltävä ehto, ei agenttityöitemi. Vaatimukset: [SPEC.md](SPEC.md).
 
 ## Projektin ajotapa
@@ -44,7 +51,7 @@ Tee tarvittava testiprojekti/harness ja fokusoidut testit. Virhevastauksen muoto
 - [ ] Paikan käyttö ja vapautus onnistuvat ilman VisitId:tä/rekisteriä. Valinnainen käyntiyhteys validoidaan, ja useita tunnistamattomia pysäköintejä voi olla eri paikoilla.
 - [ ] Ulosajo tallentaa Costin ja ajat kerran; päättynyt kuitti ei muutu. Ulosajo ei muuta paikkojen tilaa tai sulje Parkingia.
 - [ ] Reloadin jälkeen aktiivista käyntiä voi jatkaa API:n tiedon avulla.
-- [ ] PostgreSQL-integraatiotesti normaalista käynnistä ja ainakin yhdestä aktiivisen paikan yksikäsitteisyysrajoitteesta. InMemory ei korvaa tätä näyttöä.
+- [ ] Paikalliset service/API-testit normaalista käynnistä ja invarianttien virhepoluista sekä EF-mallin/osittaisten indeksien offline-tarkistus. Oikean PostgreSQL:n integraationäyttö kirjataan myöhemmäksi ihmisen tarkistukseksi.
 - [ ] Backend-build/test ja frontend-build/lint suoritettu. Suorittamatta jäänyt tarkistus näkyy erikseen.
 - [ ] Lyhyt luovutus: reitit, servicerajapinnat, lukituksen/invarianttien paikka, testikomennot ja PARK-02:n jäljellä oleva rajaus.
 
@@ -56,7 +63,7 @@ Tee tarvittava testiprojekti/harness ja fokusoidut testit. Virhevastauksen muoto
 
 Täydennä samaa toteutusta 2 minuutin konfiguroitavalla Duplicate-heuristiikalla, Interrupted-käyntien sulkemisilla, toisistaan riippumattomilla käynti-/paikkahavainnoilla ja asiakaspalveluvirheellä. Ei API-/UI-arkkitehtuurin uudistamista, request-id-palvelua, maksamista tai asiakaspalvelu-UI:ta.
 
-PostgreSQL-kilpailutestit käyttävät erillisiä DbContext-yhteyksiä ja koordinoidusti yhtä aikaa alkavia operaatioita, eivät kahta peräkkäistä pyyntöä. Tarkista lopulliset rivit ja häviäjän hallittu vastaus.
+Testaa palvelun konfliktinkäsittely paikallisilla testituplilla ja tarkista tuotannon transaktio-/lukitus-/uniikki-indeksiratkaisu offline. Oikean PostgreSQL:n synkronoidut kilpailutestit siirretään myöhempään ihmisen tarkistukseen; niiden puute ei estä tätä tehtävää.
 
 ### Hyväksyntä/checklist
 
@@ -79,17 +86,17 @@ PostgreSQL-kilpailutestit käyttävät erillisiä DbContext-yhteyksiä ja koordi
 
 **P0; pieni; Task; riippuvuus PARK-02.**
 
-Aja kertynyt testistö, kokeile pakollinen polku selaimessa ja olemassa olevassa kontissa, viimeistele README/AI-USAGE. Ei uuden koko testiston rakentamista tai avointa korjausurakkaa. Korjaa rajatut hyväksyntäpolun regressiot; laajuusmuutos on erillinen päätös.
+Aja kertynyt palveluriippumaton testistö, tarkista pakollinen polku paikallisilla palvelu-/komponenttitesteillä ja viimeistele README/AI-USAGE. Dokumentoi selain-/konttipolku myöhempään ihmisen tarkistukseen. Ei uuden koko testiston rakentamista tai avointa korjausurakkaa. Korjaa rajatut hyväksyntäpolun regressiot; laajuusmuutos on erillinen päätös.
 
 - [ ] Kertyneet testit, build ja lint ajettu toistettavilla dokumentoiduilla komennoilla.
-- [ ] Selaimessa normaali käynti/kuitti, täysi halli, varattu paikka, Duplicate, puuttuva sisäänajo ja reload kokeiltu. Automatisoi tärkein polku, jos sopiva harness on jo käytettävissä; muu näyttö kirjataan manuaaliseksi.
+- [ ] Dokumentoi myöhemmän ihmisen tarkistukseksi (ei agenttityön portti): Selaimessa normaali käynti/kuitti, täysi halli, varattu paikka, Duplicate, puuttuva sisäänajo ja reload kokeiltu. Automatisoi tärkein polku, jos sopiva harness on jo käytettävissä; muu näyttö kirjataan manuaaliseksi.
 - [ ] 3 tunnin hintaraja todennettu testikellolla. Ei julkista tuotanto-API:a mielivaltaisille laskutusajoille.
-- [ ] Olemassa olevasta Dockerfilestä rakennettu image toimii erillisen PostgreSQL:n kanssa: frontend, /api, SPA-refresh ja tietojen säilyminen sovelluksen restartissa. Pohjan vika raportoidaan, ei uusita deploymentia.
+- [ ] Dokumentoi myöhemmän ihmisen tarkistukseksi (ei agenttityön portti): Olemassa olevasta Dockerfilestä rakennettu image toimii erillisen PostgreSQL:n kanssa: frontend, /api, SPA-refresh ja tietojen säilyminen sovelluksen restartissa. Pohjan vika raportoidaan, ei uusita deploymentia.
 - [ ] README: käynnistys, testit, arkkitehtuuri, oletukset, tehdyt/pois jätetyt asiat ja seuraavat askeleet.
 - [ ] AI-USAGE: todellinen käsin tehty pohja, Lead/Developerin työ, ihmisen tarkistus/korjaukset ja suorittamatta jäänyt näyttö.
 - [ ] Itemit integroitu milestone-haaraan. Ihmisen milestone-release/tagi erotetaan tästä. Ei tagia, image-pushia tai ympäristödeployta ilman sitä koskevaa toimeksiantoa.
 
-Jos selain/Docker/PostgreSQL ei ole ympäristössä käytettävissä, puuttuva näyttö nimetään eikä sitä väitetä läpäistyksi. Agentti ei jää budjettia kuluttavaan asentamis-/uudelleenyrityssilmukkaan. Ihminen tekee puuttuvan hyväksynnän ennen työn esittelyä.
+Selain/Docker/PostgreSQL ovat myöhemmän ihmisen ympäristöhyväksynnän kohteita. Niiden puuttuminen ei estä toteutusta, checklistin paikallista hyväksyntää tai submissionia. Kirjaa ajamattomat tarkistukset ja jatka työtä ilman clarificationia tai asennus-/retry-silmukkaa.
 
 ## PARK-04 — Valinnainen hallintanäkymä
 
@@ -100,11 +107,11 @@ Erillinen `/admin` olemassa olevien availability/active parkings/active visits -
 - [ ] Määrät vastaavat API:a ja myös tunnistamattomat pysäköinnit näkyvät. Puuttuva rekisteri tai paikkayhteys esitetään selvästi ilman keksittyä yhdistämistä.
 - [ ] Kulunut aika ei muutu laskutuksen auktoriteetiksi.
 - [ ] Lataus/virhe/tyhjä tila, manuaalinen päivitys ja näppäimistökäyttö toimivat.
-- [ ] Rajattu komponentti-/selainnäyttö; porttisimulaatio ei regressioidu.
-- [ ] Suora reitti ja refresh toimivat samassa Docker-imagessa.
+- [ ] Paikalliset DOM-komponenttitestit/build; porttisimulaatio ei regressioidu. Oikean selaimen näyttö myöhemmin.
+- [ ] Dokumentoi myöhemmän ihmisen tarkistukseksi (ei agenttityön portti): Suora reitti ja refresh toimivat samassa Docker-imagessa.
 
 ## Valmius ja ajon arviointi
 
-Itemin valmius: hyväksyntäkriteerien näyttö, valmistunut checklist, sallittu authoritative submission ja onnistunut milestone-integraatio. Se ei automaattisesti tarkoita ihmisen hyväksyntää tai julkaistua imagea. Todentamattomat kohdat estävät valmiusväitteen tai näkyvät nimenomaisesti ihmisen hyväksyntään jätettynä rajauksena.
+Itemin valmius: hyväksyntäkriteerien näyttö, valmistunut checklist, sallittu authoritative submission ja onnistunut milestone-integraatio. Se ei automaattisesti tarkoita ihmisen hyväksyntää tai julkaistua imagea. Ulkoisten ympäristötarkistusten puuttuminen ei estä agenttityön valmistumista, kun paikallinen näyttö on tehty ja myöhemmät ihmisen tarkistukset dokumentoitu.
 
 Kirjaa design-/implementation-aika, Lead/Developer-tokenit ja laskutuslähde, korjaukset, ympäristöpuutteet ja ihmisen työ erikseen. Providerin kustannukset ja SDK-tokenit eivät ole sama mittari. Tavoite on toimiva ennakkotehtävä ja perustellut valinnat, ei maksimaalinen agentti- tai itemimäärä.
