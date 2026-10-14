@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace MiettisPark.Api.Services;
 
-public sealed class ParkingService(ParkingDbContext database, TimeProvider clock, ParkingFeeCalculator fees, IParkingWriteTransactionFactory transactions, IOptions<ParkingOptions> options, IGarageEventPublisher? events = null)
+public sealed class ParkingService(ParkingDbContext database, TimeProvider clock, ParkingFeeCalculator fees, IParkingWriteTransactionFactory transactions, IOptions<ParkingOptions> options, IGarageEventPublisher? events = null, IOptions<SimulationOptions>? simulation = null)
 {
     public async Task<List<GarageDto>> GetGaragesAsync(CancellationToken cancellationToken)
     {
@@ -48,16 +48,27 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
     }
 
     public Task<EntryDto> EnterGarageAsync(int garageId, string? licenseNumber, CancellationToken cancellationToken)
+        => EnterGarageAsync(garageId, licenseNumber, null, cancellationToken);
+
+    public Task<EntryDto> EnterGarageAsync(int garageId, string? licenseNumber, DateTimeOffset? occurredAt, CancellationToken cancellationToken)
+    {
+        var now = ResolveOccurredAt(occurredAt);
+        var normalized = LicenseNumberNormalizer.Normalize(licenseNumber);
+        return EnterGarageAtAsync(garageId, normalized, now, cancellationToken);
+    }
+
+    public Task<EntryDto> EnterGarageAtAsync(int garageId, string? licenseNumber, DateTimeOffset effectiveOccurredAt, CancellationToken cancellationToken)
     {
         var normalized = LicenseNumberNormalizer.Normalize(licenseNumber);
+        var now = effectiveOccurredAt.ToUniversalTime();
         return WriteAsync(garageId, async (_, _, token) =>
         {
             var active = await database.Visits.SingleOrDefaultAsync(x => x.ParkingGarageId == garageId
                 && x.LicenseNumber == normalized && x.Status == VisitStatus.Active, token);
-            var now = clock.GetUtcNow();
+            await ValidateVisitHistoryAsync(garageId, normalized, now, token);
             if (active != null && now - active.StartAt <= options.Value.DuplicateEntryWindow)
             {
-                return new EntryDto(active.Id, active.LicenseNumber, active.StartAt, EntryOutcome.Duplicate);
+                return new EntryDto(active.Id, active.LicenseNumber, active.StartAt, EntryOutcome.Duplicate, now);
             }
 
             if (active != null)
@@ -74,12 +85,16 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
             var visit = new Visit { ParkingGarageId = garageId, LicenseNumber = normalized, StartAt = now };
             database.Visits.Add(visit);
             await database.SaveChangesAsync(token);
-            return new EntryDto(visit.Id, visit.LicenseNumber, visit.StartAt, active == null ? EntryOutcome.Entry : EntryOutcome.RecoveredMissingExit);
+            return new EntryDto(visit.Id, visit.LicenseNumber, visit.StartAt, active == null ? EntryOutcome.Entry : EntryOutcome.RecoveredMissingExit, now);
         }, cancellationToken);
     }
 
     public Task<LotEntryDto> EnterLotAsync(int garageId, int lotId, int? visitId, CancellationToken cancellationToken)
+        => EnterLotAsync(garageId, lotId, visitId, null, cancellationToken);
+
+    public Task<LotEntryDto> EnterLotAsync(int garageId, int lotId, int? visitId, DateTimeOffset? occurredAt, CancellationToken cancellationToken)
     {
+        var now = ResolveOccurredAt(occurredAt);
         return WriteAsync(garageId, async (_, transaction, token) =>
         {
             var lot = await transaction.LockLotAsync(garageId, lotId, token) ?? throw ParkingError.NotFound("LOT_NOT_FOUND");
@@ -88,6 +103,7 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
                 throw ParkingError.NotFound("LOT_NOT_FOUND");
             }
 
+            await ValidateParkingHistoryAsync(lotId, now, token);
             if (lot.CurrentStatus != ParkingLotStatus.Free)
             {
                 throw ParkingError.Conflict("LOT_UNAVAILABLE");
@@ -102,22 +118,27 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
                     throw ParkingError.Conflict("VISIT_NOT_ACTIVE");
                 }
 
+                ValidateEventTime(now, visit.StartAt);
                 if (await database.Parkings.AnyAsync(x => x.VisitId == id && x.Status == ParkingStatus.Active, token))
                 {
                     throw ParkingError.Conflict("VISIT_ALREADY_PARKED");
                 }
             }
 
-            var parking = new Parking { ParkingLotId = lotId, VisitId = visitId, StartAt = clock.GetUtcNow() };
+            var parking = new Parking { ParkingLotId = lotId, VisitId = visitId, StartAt = now };
             database.Parkings.Add(parking);
             lot.CurrentStatus = ParkingLotStatus.Occupied;
             await database.SaveChangesAsync(token);
-            return new LotEntryDto(parking.Id, lotId, visitId, parking.StartAt);
+            return new LotEntryDto(parking.Id, lotId, visitId, parking.StartAt, now);
         }, cancellationToken);
     }
 
     public Task<LotExitDto> LeaveLotAsync(int garageId, int lotId, CancellationToken cancellationToken)
+        => LeaveLotAsync(garageId, lotId, null, cancellationToken);
+
+    public Task<LotExitDto> LeaveLotAsync(int garageId, int lotId, DateTimeOffset? occurredAt, CancellationToken cancellationToken)
     {
+        var now = ResolveOccurredAt(occurredAt);
         return WriteAsync(garageId, async (_, transaction, token) =>
         {
             var lot = await transaction.LockLotAsync(garageId, lotId, token) ?? throw ParkingError.NotFound("LOT_NOT_FOUND");
@@ -126,23 +147,28 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
                 throw ParkingError.NotFound("LOT_NOT_FOUND");
             }
 
+            await ValidateParkingHistoryAsync(lotId, now, token);
             var parking = await database.Parkings.SingleOrDefaultAsync(x => x.ParkingLotId == lotId && x.Status == ParkingStatus.Active, token);
             var missingObservation = parking == null && lot.CurrentStatus != ParkingLotStatus.Free;
             if (parking != null)
             {
-                parking.EndAt = clock.GetUtcNow();
+                parking.EndAt = now;
                 parking.ClosedAt = parking.EndAt;
                 parking.Status = ParkingStatus.Completed;
             }
 
             lot.CurrentStatus = ParkingLotStatus.Free;
             await database.SaveChangesAsync(token);
-            return new LotExitDto(lotId, parking?.Id, missingObservation);
+            return new LotExitDto(lotId, parking?.Id, missingObservation, now);
         }, cancellationToken);
     }
 
     public Task<ReceiptDto> LeaveGarageAsync(int garageId, string? licenseNumber, CancellationToken cancellationToken)
+        => LeaveGarageAsync(garageId, licenseNumber, null, cancellationToken);
+
+    public Task<ReceiptDto> LeaveGarageAsync(int garageId, string? licenseNumber, DateTimeOffset? occurredAt, CancellationToken cancellationToken)
     {
+        var now = ResolveOccurredAt(occurredAt);
         var normalized = LicenseNumberNormalizer.Normalize(licenseNumber);
         return WriteAsync(garageId, async (garage, _, token) =>
         {
@@ -153,7 +179,7 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
                 throw new ParkingError("ACTIVE_VISIT_NOT_FOUND", 409, "Aktiivista käyntiä ei löytynyt. Ota yhteyttä asiakaspalveluun.", true);
             }
 
-            var now = clock.GetUtcNow();
+            ValidateEventTime(now, visit.StartAt);
             var cost = fees.Calculate(now - visit.StartAt, garage.ParkingFeeConfiguration);
             visit.EndAt = now;
             visit.ClosedAt = now;
@@ -161,8 +187,47 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
             visit.Status = VisitStatus.Completed;
             await database.SaveChangesAsync(token);
             return new ReceiptDto(visit.Id, visit.LicenseNumber, visit.StartAt, visit.EndAt.Value, visit.ClosedAt.Value,
-                visit.EndAt.Value - visit.StartAt, visit.Cost.Value);
+                visit.EndAt.Value - visit.StartAt, visit.Cost.Value, now);
         }, cancellationToken);
+    }
+
+    public DateTimeOffset ResolveOccurredAt(DateTimeOffset? occurredAt)
+    {
+        if (occurredAt.HasValue && simulation?.Value.Enabled != true)
+        {
+            throw new ParkingError("SIMULATION_TIME_DISABLED", 400, "Oman tapahtuma-ajan käyttö ei ole käytössä.");
+        }
+
+        return (occurredAt ?? clock.GetUtcNow()).ToUniversalTime();
+    }
+
+    private static void ValidateEventTime(DateTimeOffset occurredAt, DateTimeOffset minimum)
+    {
+        if (occurredAt < minimum)
+        {
+            throw new ParkingError("EVENT_TIME_CONFLICT", 409, "Tapahtuman aika edeltää jo kirjattua tapahtumaa.", minimumOccurredAt: minimum.ToUniversalTime());
+        }
+    }
+
+    private async Task ValidateVisitHistoryAsync(int garageId, string licenseNumber, DateTimeOffset occurredAt, CancellationToken token)
+    {
+        var history = await database.Visits.AsNoTracking()
+            .Where(x => x.ParkingGarageId == garageId && x.LicenseNumber == licenseNumber)
+            .Select(x => new { x.StartAt, x.EndAt, x.ClosedAt }).ToListAsync(token);
+        if (history.Count > 0)
+        {
+            ValidateEventTime(occurredAt, history.SelectMany(x => new[] { x.StartAt, x.EndAt ?? x.StartAt, x.ClosedAt ?? x.StartAt }).Max());
+        }
+    }
+
+    private async Task ValidateParkingHistoryAsync(int lotId, DateTimeOffset occurredAt, CancellationToken token)
+    {
+        var history = await database.Parkings.AsNoTracking().Where(x => x.ParkingLotId == lotId)
+            .Select(x => new { x.StartAt, x.EndAt, x.ClosedAt }).ToListAsync(token);
+        if (history.Count > 0)
+        {
+            ValidateEventTime(occurredAt, history.SelectMany(x => new[] { x.StartAt, x.EndAt ?? x.StartAt, x.ClosedAt ?? x.StartAt }).Max());
+        }
     }
 
     private async Task RequireGarageAsync(int garageId, CancellationToken cancellationToken)

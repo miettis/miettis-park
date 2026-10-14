@@ -1,4 +1,4 @@
-﻿import { mount, flushPromises } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createGarageEvents, createResync, garageEvents } from './garageEvents'
@@ -28,7 +28,7 @@ function stub() {
     getGarages: vi.fn(async () => [1, 2].map(id => ({ id, name: `Halli ${id}`, address: 'Katu', latitude: null, longitude: null, capacity: 1, occupiedLots: 0, freeLots: 1, unknownLots: 0, isFull: false }))),
     getLayout: vi.fn(async (id: number) => layout(id)),
     getAvailability: vi.fn(), getActiveVisits: vi.fn(async () => []), getActiveParkings: vi.fn(async () => []),
-    enterGarage: vi.fn(async () => ({ visitId: 1, licenseNumber: 'ABC', startAt: '2026-10-14T10:00:00Z', outcome: 'Entry' as const, gateOpened: true })),
+    enterGarage: vi.fn(async () => ({ visitId: 1, licenseNumber: 'ABC', startAt: '2026-10-14T10:00:00Z', outcome: 'Entry' as const, gateOpened: true, effectiveOccurredAt: '2026-10-14T10:00:00Z' })),
     exitGarage: vi.fn(), enterLot: vi.fn(), exitLot: vi.fn(), createGarage: vi.fn(), updateGarage: vi.fn(), saveLayout: vi.fn()
   }
 }
@@ -98,23 +98,23 @@ describe('shared SSE invalidation and race-safe reads', () => {
 
   it('uses each route ID for gate, lot commands and receipts in both garages', async () => {
     const api = stub()
-    api.exitGarage.mockImplementation(async (id: number) => ({ licenseNumber: 'CAR', startAt: '2026-10-14T10:00:00Z', endAt: '2026-10-14T10:01:00Z', duration: '00:01:00', cost: id, currency: 'EUR' }))
+    api.exitGarage.mockImplementation(async (id: number) => ({ licenseNumber: 'CAR', startAt: '2026-10-14T10:00:00Z', endAt: '2026-10-14T10:01:00Z', duration: '00:01:00', cost: id, currency: 'EUR', effectiveOccurredAt: '2026-10-14T10:01:00Z' }))
     const wrapper = mount(GarageSimulation, { props: { garageId: 1 }, global: { provide: { [garageApiKey]: api } } })
     for (const id of [1, 2]) {
       await wrapper.setProps({ garageId: id }); await flushPromises()
       await wrapper.get('nav button:first-child').trigger('click')
       await wrapper.get('#license-number').setValue('CAR')
       await wrapper.get('.gate-form').trigger('submit'); await flushPromises()
-      expect(api.enterGarage).toHaveBeenLastCalledWith(id, 'CAR')
+      expect(api.enterGarage).toHaveBeenLastCalledWith(id, 'CAR', null)
       await wrapper.get('nav button:nth-child(2)').trigger('click')
       await wrapper.get('.lot-card button').trigger('click')
       await wrapper.get('.lot-entry-form').trigger('submit'); await flushPromises()
-      expect(api.enterLot).toHaveBeenLastCalledWith(id, id * 10, null)
+      expect(api.enterLot).toHaveBeenLastCalledWith(id, id * 10, null, null)
       await wrapper.get('nav button:first-child').trigger('click')
       await wrapper.get('.segmented button:nth-child(2)').trigger('click')
       await wrapper.get('#license-number').setValue('CAR')
       await wrapper.get('.gate-form').trigger('submit'); await flushPromises()
-      expect(api.exitGarage).toHaveBeenLastCalledWith(id, 'CAR')
+      expect(api.exitGarage).toHaveBeenLastCalledWith(id, 'CAR', null)
       expect(wrapper.get('.receipt-total').text()).toContain(String(id))
       Source.instances[0]!.emit(id); await flushPromises()
       expect(wrapper.find('.receipt-panel').exists()).toBe(true)
@@ -129,8 +129,10 @@ describe('shared SSE invalidation and race-safe reads', () => {
     const source = Source.instances[0]!
     source.onopen?.(); await flushPromises()
     await wrapper.get('#license-number').setValue('DRAFT-123')
+    await wrapper.get('#event-time').setValue('2026-10-14T13:30:45')
     source.emit(); await flushPromises()
     expect((wrapper.get('#license-number').element as HTMLInputElement).value).toBe('DRAFT-123')
+    expect((wrapper.get('#event-time').element as HTMLInputElement).value).toBe('2026-10-14T13:30:45.000')
     await wrapper.get('nav button:nth-child(2)').trigger('click')
     await wrapper.get('.layout-cell').trigger('click')
     source.emit(); await flushPromises()
@@ -144,6 +146,7 @@ describe('shared SSE invalidation and race-safe reads', () => {
     expect(wrapper.findAll('.lot-card')).toHaveLength(1)
     await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
     expect(wrapper.text()).toContain('Reaaliaikainen')
+    expect((wrapper.get('#event-time').element as HTMLInputElement).value).toBe('2026-10-14T13:30:45.000')
     wrapper.unmount()
   })
 

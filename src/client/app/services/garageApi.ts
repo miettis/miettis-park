@@ -19,10 +19,10 @@ export interface GarageApi {
   getAvailability(garageId: number, signal?: AbortSignal): Promise<AvailabilityDto>
   getActiveVisits(garageId: number, signal?: AbortSignal): Promise<ActiveVisitDto[]>
   getActiveParkings(garageId: number, signal?: AbortSignal): Promise<ActiveParkingDto[]>
-  enterGarage(garageId: number, licenseNumber: string): Promise<EntryDto>
-  exitGarage(garageId: number, licenseNumber: string): Promise<ReceiptDto>
-  enterLot(garageId: number, lotId: number, visitId: number | null): Promise<LotEntryDto>
-  exitLot(garageId: number, lotId: number): Promise<LotExitDto>
+  enterGarage(garageId: number, licenseNumber: string, occurredAt: string | null): Promise<EntryDto>
+  exitGarage(garageId: number, licenseNumber: string, occurredAt: string | null): Promise<ReceiptDto>
+  enterLot(garageId: number, lotId: number, visitId: number | null, occurredAt: string | null): Promise<LotEntryDto>
+  exitLot(garageId: number, lotId: number, occurredAt: string | null): Promise<LotExitDto>
 }
 
 export interface GarageManagementApi extends Pick<GarageApi, 'getGarages'> {
@@ -91,31 +91,31 @@ export class HttpGarageApi implements GarageApi, GarageManagementApi {
     return this.request(`/api/garages/${garageId}/parkings/active`, { signal })
   }
 
-  enterGarage(garageId: number, licenseNumber: string): Promise<EntryDto> {
+  enterGarage(garageId: number, licenseNumber: string, occurredAt: string | null): Promise<EntryDto> {
     return this.request(`/api/garages/${garageId}/entries`, {
       method: 'POST',
-      body: JSON.stringify({ licenseNumber })
+      body: JSON.stringify({ licenseNumber, occurredAt })
     })
   }
 
-  exitGarage(garageId: number, licenseNumber: string): Promise<ReceiptDto> {
+  exitGarage(garageId: number, licenseNumber: string, occurredAt: string | null): Promise<ReceiptDto> {
     return this.request(`/api/garages/${garageId}/exits`, {
       method: 'POST',
-      body: JSON.stringify({ licenseNumber })
+      body: JSON.stringify({ licenseNumber, occurredAt })
     })
   }
 
-  enterLot(garageId: number, lotId: number, visitId: number | null): Promise<LotEntryDto> {
+  enterLot(garageId: number, lotId: number, visitId: number | null, occurredAt: string | null): Promise<LotEntryDto> {
     return this.request(`/api/garages/${garageId}/lots/${lotId}/entries`, {
       method: 'POST',
-      body: JSON.stringify({ visitId })
+      body: JSON.stringify({ visitId, occurredAt })
     })
   }
 
-  exitLot(garageId: number, lotId: number): Promise<LotExitDto> {
+  exitLot(garageId: number, lotId: number, occurredAt: string | null): Promise<LotExitDto> {
     return this.request(`/api/garages/${garageId}/lots/${lotId}/exit`, {
       method: 'POST',
-      body: JSON.stringify({})
+      ...(occurredAt === null ? {} : { body: JSON.stringify({ occurredAt }) })
     })
   }
 }

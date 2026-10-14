@@ -15,7 +15,12 @@ namespace MiettisPark.Api.Tests;
 public sealed class TestClock : TimeProvider
 {
     public DateTimeOffset Now { get; set; } = new(2026, 10, 14, 10, 0, 0, TimeSpan.Zero);
-    public override DateTimeOffset GetUtcNow() => Now;
+    public int Reads { get; private set; }
+    public override DateTimeOffset GetUtcNow()
+    {
+        Reads++;
+        return Now;
+    }
 }
 
 // Test-only serialization and snapshot rollback, not PostgreSQL transaction semantics.
@@ -187,6 +192,7 @@ public sealed class TestStore : IDisposable
     public GarageManagementService Management { get; }
 
     public ParkingOptions Options { get; } = new();
+    public SimulationOptions Simulation { get; } = new() { Enabled = true };
     public TestStore()
     {
         options = new DbContextOptionsBuilder<ParkingDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).AddInterceptors(Probe).Options;
@@ -194,11 +200,11 @@ public sealed class TestStore : IDisposable
         Database.Database.EnsureCreated();
         Transactions = new TestTransactions(Database, Coordinator);
         Management = new GarageManagementService(Database, Transactions);
-        Service = new ParkingService(Database, Clock, new ParkingFeeCalculator(), Transactions, Microsoft.Extensions.Options.Options.Create(Options));
+        Service = new ParkingService(Database, Clock, new ParkingFeeCalculator(), Transactions, Microsoft.Extensions.Options.Options.Create(Options), simulation: Microsoft.Extensions.Options.Options.Create(Simulation));
     }
 
     public ParkingDbContext NewContext() => new(options);
-    public ParkingService NewService(ParkingDbContext database) => new(database, Clock, new ParkingFeeCalculator(), new TestTransactions(database, Coordinator), Microsoft.Extensions.Options.Options.Create(Options));
+    public ParkingService NewService(ParkingDbContext database) => new(database, Clock, new ParkingFeeCalculator(), new TestTransactions(database, Coordinator), Microsoft.Extensions.Options.Options.Create(Options), simulation: Microsoft.Extensions.Options.Options.Create(Simulation));
     public void Dispose() => Database.Dispose();
 }
 
@@ -206,6 +212,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     private readonly string name = Guid.NewGuid().ToString();
     public TestClock Clock { get; } = new();
+    public bool SimulationEnabled { get; set; } = true;
     public string? DuplicateWindow { get; set; }
     public SaveProbe Probe { get; } = new();
 
@@ -216,6 +223,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         {
             ["Database:InitializeOnStartup"] = "false",
             ["ConnectionStrings:Parking"] = "Host=unused;Database=unused",
+            ["Simulation:Enabled"] = SimulationEnabled.ToString(),
             ["Parking:DuplicateEntryWindow"] = DuplicateWindow ?? "00:02:00"
         }));
         builder.ConfigureServices(services =>
