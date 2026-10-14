@@ -8,20 +8,6 @@ Projektin työ on suunniteltu PullPotentialin Lead/Developer-mallille: kokonaise
 
 Suunnitteluvaiheessa AI ei vielä toteuttanut sovelluskoodia tai julkaissut imagea. Pohjan toteutus on kirjattu erikseen alla.
 
-## Täydennä toteutuksen aikana
-
-- Käsin tehdyn pohjan commit ja todellinen sisältö:
-- PullPotentialin projekti/milestone/item-tunnisteet:
-- Lead/Developer/mahdollinen PM, mallit ja reasoning:
-- Delegointiesimerkki: tavoite, rajat, tulos, Leadin tarkistus:
-- AI:n koodi; ihmisen hyväksymät/muuttamat/hylkäämät ratkaisut:
-- Käytetyt ohjeet/skills/MCP-työkalut ja niiden tarkoitus:
-- Todelliset komennot/tulokset ja selain-/konttihyväksyntä:
-- Suorittamatta jääneet tarkistukset ja syyt:
-- Aika, tokenit/kustannukset ja ihmisen korjaukset erikseen:
-
-Haastatteluun lyhyt yhteenveto ja pari konkreettista esimerkkiä. Ei tarvetta julkaista kokonaisia transkripteja, salaisuuksia tai epäolennaisia henkilötietoja. Agentin väite ei ole oma testinäyttö.
-
 ## Käyttöliittymäluonnos
 
 AI tuotti ui-mocks-hakemiston itsenäisen HTML/CSS/JavaScript-prototyypin: porttisimulaatio, paikkahavainnot, lukeva hallinta, kuitti ja tilaviestit. Mukana valinnainen auton yhdistäminen ja erilliset hallikäynti-/paikkatilat. JavaScriptin keskeiset mockup-polut tarkistettiin DOM-stub-testillä ja desktop-ulkoasu headless Chromen kuvalla. Tämä ei ole Nuxt-sovelluksen toteutus tai tuotannon backend-/selainhyväksyntä.
@@ -56,3 +42,16 @@ Park Lead toteutti hyväksytyn pienen designin suoraan ilman delegointia: lukeva
 Lead tarkisti tuotannon koodin/testit ja korjasi testifiksuurin mount-ajoituksen sekä DOMWrapper-tyypityksen. Promise.allSettled toteuttaa designin yhteisen julkaisun ja odottaa virheessäkin kaikkien käynnistettyjen hakujen päättymistä, joten refresh-vartio ei avaudu kesken muiden hakujen. Paikalliset tulokset (99 backend / 26 DOM, lint/typecheck/build, offline OpenAPI/malli/SQL) sekä todelliset näyttörajat on kirjattu VALIDATION.md:hen. Nykyrevision platform evidence ja pysyvä checklist/submission kuuluvat PullPotentialiin.
 
 Käytössä olivat AGENTS/SPEC/BACKLOG/STARTING-POINT, knowledge 103/104, engineering/verification-skillit sekä ui-mocks vain ulkoasureferenssinä. Ulkoisia versionkohtaisia API-ratkaisuja ei tarvittu: nykyisiä Vue/Nuxt/DTO/testiharness-sopimuksia käytettiin sellaisenaan. Oikea selain/näppäimistö/visuaalinen hyväksyntä, saman Docker-imagen suora `/admin` ja refresh, oikea PostgreSQL ja restart ovat ajamatta, myöhempiä ihmisen tarkistuksia eivätkä agenttityön portteja. Ihmisen uusia koodikorjauksia tai ympäristöhyväksyntää ei ole kirjattu. Ei commitia/pushia/tagia/releasea; PullPotential hallitsee Git-finalisoinnin. Aika/tokenit/kustannukset löytyvät execution-historiasta, niitä ei arvioida tässä.
+## PullPotential PARK-03 (projekti 34, milestone 59, item 1119)
+
+Park Lead toteutti hyväksytyn rajatun loppuhyväksynnän suoraan, ilman Developer-delegointia tai uutta testikehikkoa. Kertyneeseen ServiceTests-harnessiin lisättiin kaksi aidon ParkingServicen testikellotapausta: täsmälleen 3 h = 9,00 € ja 3 h + 1 tick = 9,30 €, palvelimen kuittiajat sekä tuoreesta DbContextista tarkistettu Completed/Cost/EndAt/ClosedAt. Tuotannon hinnoittelu, DTO:t, API, EF/PostgreSQL-malli ja transaktiot eivät muuttuneet. Lead tarkisti pyyntö-DTO/OpenAPI-aika-auktoriteetin, kokosi hyväksyntäpolun testimatriisin ja viimeisteli READMEn sekä myöhemmän ihmisen runbookin VALIDATION.md:hen.
+
+Pohja `a82ca21` oli ihmisen ohjaama ja käyttäjän valitsema, mutta Codexin toteuttama; sitä ei väitetä kokonaan ihmisen käsin kirjoittamaksi. Historiallisten SPEC/BACKLOG/STARTING-POINT-dokumenttien vanha käsin tehtävän pohjan/adminin rajaus ja ulkoiset hyväksyntäportit eivät kuvaa nykyistä toimeksiantoa. Ihminen hyväksyi 14.10.2026 paikallisen agenttihyväksynnän sekä adminin sisällyttämisen MVP:hen. Tämä ei ole uusi selaimen, kontin tai tuotannon ympäristöhyväksyntä.
+
+Todelliset PARK-03-ajot: kohdennettu ServiceTests 16 passed / 0 failed / 0 skipped; koko backend-testistö 101 passed / 0 failed / 0 skipped; npm run check (npm ci, lint, typecheck, 26 DOM-testiä, staattinen build) exit 0; node scripts\openapi.mjs exit 0 ilman DB:tä/kuuntelevaa palvelinta ja tracked-kuvauksen muutosta. ModelTests tarkisti Npgsql-mallin/idempotentin SQL:n/mallin yhtäpitävyyden samassa testiajossa. Lopullisen lähderevision backend-build/backend-tests/frontend-checks suoritetaan vielä platformin RunVerificationilla; sen evidence/submission-historia on auktoritatiivinen, paikallinen tekstikirjaus ei korvaa sitä.
+
+Ensimmäinen workspace-komento käytti Windows PowerShellille kelpaamatonta &&-erotinta eikä ajanut tarkistuksia; komento korjattiin PowerShell-syntaksille. Työkalun git branch --all -pyynnöt palauttivat execution failed, eivät muuttaneet repoa tai tuottaneet integraationäyttöä; milestone/59:n toteutunut historia tarkistettiin sallitulla git log -luvulla. Uusi palvelutesti ja koko testistö läpäisivät ensimmäiset suoritetut testiajot; testejä ei skipattu eikä tuotantokoodin regressiokorjausta tarvittu. Pohjan npm-audit/deprecation/Nitro- sekä ympäristön ApiEndpointDiscovery-lokihavainnot on erotettu VALIDATION.md:ssä, ei kuitattu turvallisuus- tai runtime-hyväksynnäksi.
+
+Käytössä olivat AGENTS/SPEC/BACKLOG/STARTING-POINT, knowledge 103/104 ja engineering/verification-skillit sekä PullPotentialin checklist/evidence/submission-työkalut. Ratkaisu perustui nykyiseen paikalliseen harnessiin ja sopimuksiin, eikä tarvittu uutta versionkohtaista ulkoista API-ratkaisua. PARK-01/02:n rajatut Developer-delegoinnit ja Leadin korjaukset sekä PARK-04:n suora Lead-työ ovat yllä. Ihmisen uusia koodikorjauksia, selain-/kontti-/PostgreSQL-hyväksyntää tai puuttuvia malli-/kustannus-/käyttötietoja ei keksitä; todelliset execution/aika/tokeni/kustannustiedot ovat platform-historiassa.
+
+PARK-01 → PARK-02 → PARK-04 ovat milestone/59:ssä (PR #1/#2/#3). PARK-03 on tämän kirjaamisen hetkellä toteutuksessa, integraatio vasta PullPotentialin submission/finalisoinnin jälkeen. Lead ei commitoi/pushaa/tagaa, julkaise imagea tai deployaa. Ihmisen release on erillinen. Oikea selain/näppäimistö/ulkoasu, Docker + erillinen PostgreSQL, todelliset lukitus/kilpailu/rajoite/rollback/migraatio- ja restart-ajot ovat suorittamatta ja kuvattu myöhemmiksi ihmisen tarkistuksiksi, eivät agenttityön portiksi.

@@ -61,6 +61,35 @@ public sealed class ServiceTests
         Assert.Equal("garage:1", store.Transactions.Events[1]);
     }
 
+    [Theory]
+    [InlineData(0, 900)]
+    [InlineData(1, 930)]
+    public async Task ThreeHourBoundaryPersistsReceiptUsingServerClock(int extraTicks, int expectedCents)
+    {
+        using var store = new TestStore();
+        var start = store.Clock.Now;
+        var entry = await store.Service.EnterGarageAsync(1, "BOUNDARY", Token);
+        var duration = TimeSpan.FromHours(3) + TimeSpan.FromTicks(extraTicks);
+        store.Clock.Now = start + duration;
+        var receipt = await store.Service.LeaveGarageAsync(1, "BOUNDARY", Token);
+        Assert.Equal(entry.VisitId, receipt.VisitId);
+        Assert.Equal(start, receipt.StartAt);
+        Assert.Equal(duration, receipt.Duration);
+        Assert.Equal(expectedCents / 100m, receipt.Cost);
+        Assert.Equal(store.Clock.Now, receipt.EndAt);
+        Assert.Equal(receipt.EndAt, receipt.ClosedAt);
+        Assert.True(receipt.GateOpened);
+        Assert.Equal("EUR", receipt.Currency);
+        using var fresh = store.NewContext();
+        var saved = await fresh.Visits.SingleAsync();
+        Assert.Equal(entry.VisitId, saved.Id);
+        Assert.Equal(VisitStatus.Completed, saved.Status);
+        Assert.Equal(start, saved.StartAt);
+        Assert.Equal(receipt.EndAt, saved.EndAt);
+        Assert.Equal(receipt.ClosedAt, saved.ClosedAt);
+        Assert.Equal(receipt.Cost, saved.Cost);
+    }
+
     [Fact]
     public async Task FreshContextCanContinueActiveVisitAndParking()
     {
