@@ -1,6 +1,6 @@
 # Miettis Park
 
-.NET-, PostgreSQL- ja Vue/Nuxt-pohjainen pysäköintihallisimulaatio rekrytoinnin ennakkotehtävään. Koko MVP sisältää porttisimulaation `/garages/{id}` ja lukevan hallintanäkymän `/admin`.
+.NET-, PostgreSQL- ja Vue/Nuxt-pohjainen pysäköintihallisimulaatio rekrytoinnin ennakkotehtävään. Nykyinen v2 sisältää hallikartan `/`, hallikohtaisen porttisimulaation `/garages/{id}` sekä lukevan hallinnan ja halliylläpidon `/admin`-osiossa.
 
 - [SPEC.md](SPEC.md): alkuperäinen toiminnallinen ja tekninen sopimus.
 - [STARTING-POINT.md](STARTING-POINT.md) ja [BACKLOG.md](BACKLOG.md): lähtöpohjan ja työpakettien historiallinen suunnitelma.
@@ -8,7 +8,7 @@
 - [VALIDATION.md](VALIDATION.md): paikallinen näyttö, testimatriisi ja myöhemmin ajettava ihmisen ympäristötarkistus.
 - [Käyttöliittymäluonnokset](ui-mocks/index.html): erillinen prototyyppi esimerkkidatalla, ei sovelluksen tietolähde.
 
-MVP:n toteutusjärjestys oli PARK-01 → PARK-02 → PARK-04 → PARK-03, myös admin. V2:n järjestys on PARK-V2-01 → PARK-V2-02 → PARK-V2-03; tässä toteutetut osuudet ovat PARK-V2-01 ja PARK-V2-02. Se korvaa BACKLOGin vanhan adminin myöhempää milestonea koskevan rajauksen. Käyttäjän 14.10.2026 hyväksymä palveluriippumaton agenttihyväksyntä korvaa dokumenttien vanhat ulkoiset valmistumisportit; ei SPEC:n liiketoimintasääntöjä. Oikea selain, Docker ja PostgreSQL tarkistetaan myöhemmin ihmisen toimesta. Paikallinen hyväksyntä ei tarkoita ympäristöhyväksyntää tai tuotantovalmiutta.
+MVP:n toteutusjärjestys oli PARK-01 → PARK-02 → PARK-04 → PARK-03, myös admin. V2:n järjestys on PARK-V2-01 → PARK-V2-02 → PARK-V2-03; PARK-V2-01/02 toteuttivat ominaisuudet ja PARK-V2-03 kokoaa paikallisen hyväksyntänäytön ja luovutuksen. Se korvaa BACKLOGin vanhan adminin myöhempää milestonea koskevan rajauksen. Käyttäjän 14.10.2026 hyväksymä palveluriippumaton agenttihyväksyntä korvaa dokumenttien vanhat ulkoiset valmistumisportit; ei SPEC:n liiketoimintasääntöjä. Oikea selain, Docker ja PostgreSQL tarkistetaan myöhemmin ihmisen toimesta. Paikallinen hyväksyntä ei tarkoita ympäristöhyväksyntää tai tuotantovalmiutta.
 
 ## Toteutus ja arkkitehtuuri
 
@@ -122,19 +122,19 @@ Admin näyttää API-määrät ja kaikki aktiiviset Parkingit, myös tunnistamat
 
 Kulunut aika on Parking.startAt:n ja selaimen viimeisen onnistuneen päivityshetken erotus, suuntaa-antava, **ei laskutusperuste**. Ei live-ajastinta/hintaa. Kaikkien hakujen päättymistä odotetaan ennen uuden tilanteen julkaisua tai rinnakkaiseston vapautusta; virheessä vanha tilanne piilotetaan ja retry tarjotaan. Erilliset GET-resurssit eivät muodosta backendin atomista kokonaiskuvaa.
 
-## Rajaus, luovutus ja seuraavat askeleet
+## MVP:n historiallinen rajaus ja luovutus
 
 Toteutettu: normaali polku, itsenäiset paikkahavainnot, hinnoittelu/kuitti, Duplicate/recovery/virhepolut, turvalliset konfliktit, API-reload, lukeva admin ja kertynyt paikallinen testiharness. PARK-03 lisäsi palvelun 3 h -rajan tallennustestin ja koko MVP:n loppuhyväksyntä-/luovutusdokumentit.
 
-Pois rajattu: auth, oikea maksaminen/portit/kamerat, varaukset, huoltotilat, ajonaikainen hinnasto/hintaversiot, varma kameraviestien idempotenssi, manuaalinen laskutus/portinohitus, automaattinen Unknown-sovitus, reaaliaikapäivitys ja tuotantodeploymentin uudistus.
+Pois rajattu: auth, oikea maksaminen/portit/kamerat, varaukset, huoltotilat, ajonaikainen hinnasto/hintaversiot, varma kameraviestien idempotenssi, manuaalinen laskutus/portinohitus, automaattinen Unknown-sovitus ja tuotantodeploymentin uudistus. Reaaliaikapäivitys oli pois MVP:stä, mutta SSE kuuluu nykyiseen v2:een.
 
 Milestone/59 sisältää PARK-01 (`2715700`, PR #1), PARK-02 (`4a98c71`, PR #2) ja PARK-04 (`b0986bf`, PR #3). MVP-itemit 1116–1119 ja milestone 59 ovat nykyisen projektitoimeksiannon mukaan Done. Tässä itemissä ei tehty mergeä tai julkaisua. Nykyrevision kolmen verification-avaimen lopputulos ja pysyvä checklist/submission ovat platformissa; aiempien itemien näyttö ei korvaa niitä.
 
 GitHub Actions julkaisee imagen `ghcr.io/<owner>/<repository>` semanttisesta tagista, esimerkiksi `v1.2.3` tai `v1.2.3-rc.1`. Virheellinen versiotagi pysäyttää työn ennen julkaisua. Docker-tagit ovat versio ilman v-etuliitettä, `sha-<12 merkkiä>` ja vain vakaalle versiolle `latest`. SemVerin mahdollinen `+build` tallennetaan Docker-tagissa `_build`-muodossa; build-metadatatagi ei muuta latestia. Julkaisu käyttää GitHubin GITHUB_TOKENia ja packages:write-oikeutta. Imagea ei ole vielä julkaistu eikä workflowta ajettu GitHubissa.
 
-## V2-suunnitelma
+## V2-sopimus ja toteutus
 
-MVP:n jälkeinen hallien ylläpito, ruudukkopohjat ja kartta: [SPEC-V2.md](SPEC-V2.md) ja [BACKLOG-V2.md](BACKLOG-V2.md). PARK-V2-01:n toteutus kuvataan alla. Julkinen hallikartta, /garages/{id}-simulaatioreitti ja SSE kuuluvat PARK-V2-02:een; ne eivät sisälly tähän muutokseen.
+MVP:n jälkeinen hallien ylläpito, ruudukkopohjat ja kartta: [SPEC-V2.md](SPEC-V2.md) ja [BACKLOG-V2.md](BACKLOG-V2.md). PARK-V2-01:n ja PARK-V2-02:n toteutukset kuvataan alla; molemmat sisältyvät nykyiseen lähtörevisioniin. SPEC.md/BACKLOG.md/STARTING-POINT.md kuvaavat historiallista MVP-/pohjascopea: vanha `/`-simulaatio siirtyi `/garages/{id}`-reitille, monihalli ja kirjoittava halliylläpito lisättiin v2:ssa ja SSE korvasi pelkän manuaalisen päivityksen rajauksen. MVP:n valinnainen admin toteutettiin jo MVP:ssä nykyisen toimeksiannon mukaisesti. SPEC-V2.md täydentää ja näissä kohdissa korvaa MVP:n rajauksen; Visit/Parking- ja hinnoittelu-invariantit eivät muuttuneet.
 
 
 ## PARK-V2-01: hallit ja pohja
@@ -159,7 +159,7 @@ Muokkaus on paikallinen luonnos: ajorata, pysäköintipaikka, pyyhekumi, klikkau
 - `ParkingLot.IsActive` on nykykapasiteetin, listojen ja paikkakomentojen eksplisiittinen ehto. Ei globaalia query filteriä: historia ja FK-suhteet pysyvät luettavina. Eläköinti ei fyysisesti poista riviä. Eläköity ID → LOT_NOT_FOUND; vanhan numeron voi käyttää uudelleen eri ID:llä.
 - Vain Free ja ilman Active Parkingia voidaan eläköidä. Occupied, Unknown ja ristiriitainen Free+Active Parking → LOT_REMOVAL_CONFLICT/409. Siirto/numeron muutos säilyttävät ID:n, tilan ja historian myös käytössä olevalla paikalla.
 - ReadCommitted, hallin FOR UPDATE ensin ja aktiiviset paikat ID-järjestyksessä; sama sopimus simulaatiolle. Versio/poistoehdot tarkistetaan lukon jälkeen. Numerovaihto käyttää vapaita positiivisia väliaikaisnumeroita saman transaktion sisällä; osittainen uniikki-indeksi pysyy voimassa. Automaatti valitsee pienimmät vapaat positiiviset numerot lopullisesta aktiivijoukosta y/x-järjestyksessä. Ei tuotannon muistilukkoa.
-- `GarageManagementService.WriteAsync` ja `ParkingService.WriteAsync` palauttavat vasta commitin jälkeen: seuraavan itemin SSE julkaistaan vasta onnistuneen commitin jälkeen. Tässä ei ole SSE-julkaisijaa.
+- `GarageManagementService.WriteAsync` ja `ParkingService.WriteAsync` palauttavat vasta commitin jälkeen: seuraavan itemin SSE julkaistaan vasta onnistuneen commitin jälkeen. PARK-V2-01:ssä ei vielä ollut SSE-julkaisijaa; nykyinen PARK-V2-02-kytkentä julkaisee commitin ja disposen jälkeen.
 - Virheet: INVALID_GARAGE/INVALID_LAYOUT/LOT_NUMBER_CONFLICT 400, GARAGE_NOT_FOUND/LOT_NOT_FOUND 404 (myös risti-ID), LAYOUT_VERSION_CONFLICT/LOT_REMOVAL_CONFLICT 409. Tuntematon tallennusvika ei muutu onnistumiseksi.
 - Migraatio `GarageLayouts` säilyttää nykyiset ID:t, numerot, tilat, hinnastot ja Visit/Parkingit. Number/Id-järjestyksen pohja: enintään 50 paikkaa/rivi, tyhjä halli 1×1. Yli 2500 lähtöpaikkaa aiheuttaa selkeän virheen, ei typistystä tai reset-seediä. Puuttuvia perustietoja ei keksitä. Todellinen PostgreSQL-migraatioajo on vielä ajamatta.
 
@@ -192,3 +192,13 @@ Kartta käyttää **MapLibre GL JS 6.14.0** ja styleä `https://tiles.openfreema
 ### PARK-V2-03-luovutus
 
 Säilytä GarageDto/LayoutDto, IsActive-historiasuoja, halli-ennen-paikkaa-lukitus ja hinnasto; mallimuutosta ei tehty. SSE/resync/luonnossuojaus yllä. Komennot repojuuressa: `node scripts\openapi.mjs`, `dotnet build MiettisPark.slnx -c Release`, `dotnet test MiettisPark.slnx -c Release`, `npm run check`. Oikea PostgreSQL-migraatio/kilpailut, Docker/SPA-refresh/restart, WebGL/ulkoinen kartta sekä kahden selaimen/proxyn SSE tarkistetaan myöhemmin. Ei authia, uutta infraa, releasea, mergeä tai deployta.
+
+## PARK-V2-03: hyväksyntä ja lopullinen luovutus
+
+Lähtöworktree oli puhdas, HEAD `0e8bdf8` (PARK-V2-02, PR #9); historiassa `6d4bcdb` (PARK-V2-01, PR #8), `dff550f` (MVP, PR #5) ja `a82ca21` (pohja). V2-03 lisää vain kokoavan `V2AcceptanceTests`-API-testin ja hyväksyntä-/luovutusdokumentit. Ei tuotantokoodin, mallin, providerin, riippuvuuksien tai hinnoittelun muutosta. Integraatio tapahtuu vasta PullPotentialin submission/finalisoinnin kautta; tämän itemin milestone-mergeä tai releasea ei väitetä tehdyksi.
+
+Paikallinen kertynyt näyttö: **162 backend-testiä, 0 epäonnistunutta/ohitettua**, **62 Vitest/jsdom-testiä**, clean npm ci/lint/typecheck/staattinen build sekä Microsoftin offline OpenAPI. Vaatimus–testi–näyttöraja-matriisi ja AJAMATTA-ympäristörunbook ovat [VALIDATION.md](VALIDATION.md):ssä. Lopullisen saman revision kolme pakollista RunVerification-raporttia ovat platformissa; nämä workspace-luvut eivät korvaa niitä.
+
+Jatkajan sopimukset: nykyiset ylläpito-/simulaatioreitit ja DTO:t yllä; Layout PUT käyttää expectedVersionia ja täsmällisiä removedLotIds-arvoja. IsActive säilyttää historian, siirto ei vaihda ID:tä, Visitin sulkeminen ei vapauta Parkingia. ReadCommitted/halli-ennen-paikkaa ja decimal/tick/TimeProvider säilyvät. SSE on yhden prosessin commitin jälkeinen invalidointi; reconnect hakee snapshotin ja editoriluonnos säilyttää odotetun version. MapLibre 6.14.0/OpenFreeMap, paikallinen worker ja avaimeton Liberty-style säilyvät. Tarkistuskomennot: `node scripts\openapi.mjs`, `dotnet build MiettisPark.slnx -c Release`, `dotnet test MiettisPark.slnx -c Release`, `npm run check`.
+
+Oikeat selain/WebGL/kartta-, Docker/PostgreSQL/restart- ja kahden selaimen proxy-SSE-ajot ovat **AJAMATTA**, myöhemmälle ihmiselle; eivät agentin submission-portteja. Ihmisen lopullinen ympäristöhyväksyntä, milestone-release, SemVer-tagi ja image-julkaisu ovat erillisiä. Ei manuaalista Git-finalisointia, julkaisua tai deployta. Tunnetut npm-audit/build-varoitukset on kirjattu, ei yleistä upgrade-urakkaa tai turvallisuushyväksyntäväitettä.
