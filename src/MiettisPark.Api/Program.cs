@@ -2,6 +2,8 @@ using System.Reflection;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using MiettisPark.Api.Data;
+using MiettisPark.Api.Services;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,7 +21,16 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = _ => new BadRequestObjectResult(
+        ParkingExceptionHandler.CreateProblem("INVALID_REQUEST", 400, "Virheellinen pyyntö. Tarkista kentät ja JSON-muoto."));
+});
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ParkingExceptionHandler>();
+builder.Services.AddSingleton<ParkingFeeCalculator>();
+builder.Services.AddScoped<IParkingWriteTransactionFactory, ParkingWriteTransactionFactory>();
+builder.Services.AddScoped<ParkingService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<ParkingDbContext>(options =>
 {
@@ -40,7 +51,7 @@ builder.Services.AddOpenApi("v1", options =>
     {
         document.Info.Title = "Miettis Park API";
         document.Info.Version = "v1";
-        document.Info.Description = "Parking garage simulation. Foundation contains infrastructure endpoints only.";
+        document.Info.Description = "Parking garage simulation: independent gate and parking lot observations.";
         return Task.CompletedTask;
     });
 });
