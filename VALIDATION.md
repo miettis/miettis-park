@@ -95,3 +95,95 @@ Ensimmäinen DOM-ajo epäonnistui testin tarkistaessa DOM:n ennen mountin reakti
 - Oikea PostgreSQL: lukitus/kilpailut/rajoitteet/rollback, migraation soveltaminen ja restart-pysyvyys. Testiin rajattu InMemory/serialisointi/tilannekuvarollback ei todista DB-moottorin semantiikkaa.
 
 Luovutus PARK-03: README kuvaa nykyiset neljä GET-sopimusta, Visit/Parking-riippumattomuuden ja selaimen ajan näyttörajan. Testikehikko on valmis; loppuhyväksyntä käyttää kertyneitä komentoja ja erottaa nämä ajamattomat ympäristötarkistukset paikallisesta näytöstä. Ei releasea, tagia tai image-pushia.
+## PARK-03: koko MVP:n rajattu loppuhyväksyntä 14.10.2026
+
+Nykyinen toimeksianto: PARK-01 → PARK-02 → PARK-04 → PARK-03, mukaan lukien `/admin`. Alla paikallinen näyttö ja ajamattomat ympäristötarkistukset erotetaan. Vanhojen SPEC/BACKLOG/STARTING-POINT-dokumenttien ulkoiset portit/adminin milestone-rajaus eivät ohita käyttäjän 14.10.2026 hyväksymää nykyistä rajausta. Tuotannon PostgreSQL ja liiketoimintasäännöt säilyvät.
+
+### Toteutunut paikallinen ajo ja lopullisen revision evidence
+
+Repojuuresta PowerShellillä (Linuxissa polkujen erotin `/`):
+
+```powershell
+dotnet test MiettisPark.slnx -c Release --filter FullyQualifiedName~ServiceTests
+dotnet test MiettisPark.slnx -c Release
+node scripts\openapi.mjs
+npm run check
+```
+
+| Suoritettu workspace-komento | Todellinen tulos |
+| --- | --- |
+| Kohdennettu ServiceTests | 16 passed, 0 failed, 0 skipped. |
+| Koko dotnet test Release | 101 passed, 0 failed, 0 skipped; sisältää hinnan/service/API/konflikti/kilpailu/admin/mallitestit. |
+| node scripts\openapi.mjs | Exit 0, Release-build 0 warning/error; generoitu tracked OpenAPI ennallaan. Ei DB-yhteyttä/startup-migraatiota/kuuntelevaa palvelinta. |
+| npm run check | Exit 0: puhdas npm ci, lint, typecheck, 26 DOM-testiä (11 portti + 15 admin), staattinen Nuxt-build myös /admin. |
+
+Nämä ajot eivät vielä ole tämän tekstin lopullisen revision platform-näyttö. Dokumentit viimeistellään ennen revision jäädytystä; **lopullinen nykyrevision** evidence tallennetaan erikseen RunVerificationilla:
+
+- `backend-build`: `dotnet build MiettisPark.slnx -c Release`
+- `backend-tests`: `dotnet test MiettisPark.slnx -c Release`
+- `frontend-checks`: `npm run check` (puhtaan snapshotin npm ci → lint → typecheck → DOM → build)
+
+Platformin durable evidence/report ja submission-historia yksilöivät revision ja auktoritatiivisen lopputuloksen; aiempien itemien ajot tai omistajan dokumenttiväite eivät korvaa niitä. Myöhempi lähdemuutos vaatii uuden revision evidence-ajot. Checklist merkitään valmiiksi vasta lopputulosten jälkeen.
+
+Uusi ThreeHourBoundaryPersistsReceiptUsingServerClock testaa aitoa ParkingServiceä ilman paikkahavaintoa: 3 h = 9,00 €, 3 h + 1 tick = 9,30 €, palvelinajat/duration, gateOpened/EUR sekä tuoreesta DbContextista tallennetut Completed/Cost/StartAt/EndAt/ClosedAt. PricingTests säilyttää kaikki SPEC:n hintarajat. Tuotannon DTO/API/hinnoittelu/malli/transaktiot eivät muuttuneet eikä julkista kellonmuokkausreittiä lisätty.
+
+Ensimmäinen workspace-komento ei ajanut mitään PowerShellin hylättyä &&-erottimen; korjattu komento onnistui. Työkalun git branch --all -lukuyritykset palauttivat execution failed eikä niistä saatu näyttöä; git log milestone/59 onnistui. Uudet testit/koko testistö eivät epäonnistuneet eikä skippejä ollut. npm ci ilmoitti edelleen pohjan 11 high-audit-havaintoa ja deprecation/install-script-varoituksia. Staattinen build antoi tunnetun Nitro cache-driver -varoituksen, offline-generointi ympäristön puuttuvan ApiEndpointDiscovery-assemblyn lokiviestin; exitit olivat 0. Näitä ei korjattu riippuvuuksien avoimena päivitysurakkana eikä onnistumista väitetä turvallisuus-/runtime-hyväksynnäksi.
+
+### Hyväksyntäpolku → nykyinen testi → näyttöraja
+
+Backend-tiedostot ovat tests\MiettisPark.Api.Tests; DOM-tiedostot src\client\app\pages. Lyhyet kuvaukset viittaavat tiedostojen testinimiin.
+
+| Polku | Nykyinen palvelu/API/DOM-testi | Todistettava raja |
+| --- | --- | --- |
+| Normaali käynti, paikanvaihto, tallennettu kuitti | ServiceTests.NormalVisitMovesLotsAndPersistsReceiptWithServerTimes; ApiTests.HttpPipelineRunsNormalFlowAndReloadWithNumericReceipt; index.test.ts: supports gate entry, linked parking, moving lots, and server receipt | Aito palvelu/testikello, tallennus tuoreesta contextista, HTTP/JSON ja stubattu UI; ei oikeaa DB:tä/selainta. |
+| Kolmen tunnin raja ja muut SPEC-rajat | ServiceTests.ThreeHourBoundaryPersistsReceiptUsingServerClock (0/1 tick); PricingTests.CalculatesSpecificationBoundaries, RejectsNegativeDuration, RejectsInvalidConfigurations | 9,00/9,30 palvelimen kuitti ja tallennus; tarkka decimal/tick-kaava. |
+| API-reload ja jatkaminen | ServiceTests.FreshContextCanContinueActiveVisitAndParking; ApiTests.HttpPipelineRunsNormalFlowAndReloadWithNumericReceipt; index.test.ts: re-fetches all data on remount | Uusi context/client/mount käyttää API-tietoa; ei todista prosessirestartin DB-pysyvyyttä. |
+| Täysi halli ja silti sisäänajo | ServiceTests.IndependentObservationsAllowSeveralUnknownCarsAndFullGarageEntry; ConcurrencyTests.DifferentRegistrationsCanExceedCapacityWhenFull; index.test.ts: records entry in a full garage | Paikkatilat, ei Visit-määrä, määräävät isFullin; sisäänajo sallittu. |
+| Occupied/Unknown ja Visit-yhteyden estot | ServiceTests.NonFreeLotsRejectEntryAfterGarageThenLotLock; RecoveryApiTests.ServiceAndApiRejectInvalidLotCommandsWithoutMutation; index.test.ts: independent parking/only Free ja conflicting lot selection | Domain/API 404/409, UI-estot ja konfliktin refresh; ei DB-lukon runtimea. |
+| Tunnistamaton pysäköinti/vapautus | ApiTests.EmptyAndNullVisitBodiesAllowIndependentParking; RecoveryTests.NullVisitIsNormalWhenReleasingAnIndependentParking; ConcurrencyTests.IndependentUnknownCarsBothPersistOnDifferentLots; index.test.ts independent parking | Null VisitId on normaali, useat eri paikat sallittu; SQL-null-indeksin runtime jää erikseen. |
+| Duplicate/recovery ja historiallisen paikan säilyminen | RecoveryTests.DuplicateUsesOriginalStartAndNeverChangesParking, RecoveryClosesBeforeInsertAndPreservesHistoricalParking; RecoveryApiTests.ApiUsesConfiguredWindowAndOriginalStart; index.test.ts duplicate/recovery | Raja 2 min / +1 tick, sulkemisjärjestys ja itsenäisyys; rollback/kilpailu vain paikallisessa mallissa. |
+| Puuttuva/toistettu ulosajo, ei uutta veloitusta | RecoveryApiTests.MissingAndRepeatedExitNeverReturnCostOrHistoricalReceipt; RecoveryTests.CompletedVisitAndRepeatedExitNeverChangeParkingOrStoredReceipt; index.test.ts 409/customer service ja clears an earlier receipt | Turvallinen asiakaspalveluvirhe, vanha Cost säilyy, UI ei näytä vanhaa kuittia uutena. |
+| Lukeva admin, Ei tiedossa ja erilliset käynnit | AdminReadContractTests.ReadsPreserveIndependentUnknownAndHistoricalObservations (Completed/Interrupted); admin.test.ts API counts/rows, read-only adapter, refresh/error/retry/semantics | GET ei muuta tallennettua dataa; Parking-alku/kesto eikä Visit-alku; DOM ei todista ulkoasua/selainta. |
+| EF/PostgreSQL-sopimus ja laskutusauktoriteetti | ModelTests.NpgsqlModelAndMigrationPreserveOfflineDatabaseContract; ApiTests normaali polku ylimääräisellä asiakkaan StartAt:lla; GarageContracts.cs ja generoitu OpenAPI tarkistettu | Npgsql-malli/idempotentti SQL/no pending changes; nullable VisitId/FK/lifecycle/Active-indeksit. LicenseRequest sisältää vain LicenseNumberin, LotEntryRequest VisitId:n; ei asiakkaan aikaa/hintaa. |
+
+Tuotannossa säilyvät ReadCommitted, parametrisoitu halli-ennen-paikkaa FOR UPDATE ja osittaiset uniikki-indeksit. Recovery tallentaa sulkemisen ennen uuden Active-rivin lisäystä samaan transaktioon. InMemory/serialisointi/tilannekuvarollback ei todista PostgreSQL-lukitusta, erillisyystasoa, rajoitteita tai rollbackia. TestServer ei avaa verkkopalvelinta; DOM käyttää API-stubeja. Karttapalvelua ei käytetä nykyisessä sovelluksessa eikä testeissä.
+
+### Myöhemmän ihmisen runbook — kaikki alla AJAMATTA, ei agenttityön portti
+
+Käytä erillistä paikallista testidataa, ei oikeita rekistereitä/henkilötietoja. Kirjaa ajopäivä, commit/image, selain, ympäristö ja todelliset tulokset/poikkeamat; älä merkitse läpäistyksi pelkästä ohjeesta. Älä julkaise/tagaa/pushaa imagea tämän runbookin perusteella.
+
+#### 1. Olemassa oleva image + erillinen PostgreSQL
+
+1. Repojuuresta `Copy-Item .env.example .env`, aseta paikallinen POSTGRES_PASSWORD (ei versionhallintaan), sitten `docker compose up --build -d`. Tämä rakentaa olemassa olevan Dockerfilen imagen; ei uutta deploymentia. DB on erillinen postgres:17-palvelu.
+2. Aja `docker compose ps` ja `docker compose logs app`. App käynnistyy migraatioiden jälkeen ilman runtime-Nodea. Avaa http://localhost:8080 (tai APP_PORT), http://localhost:8080/admin sekä `/api/health`, `/api/garages` ja `/api/garages/1/availability` samassa originissa. Health on vain liveness; garage-GET todentaa DB-polun.
+3. Saatavuuden capacity=5 ja alkutilan vapaita=5, hallilista yksi. Tarkista seedi myös DB:stä käyttäen .env:n omaa käyttäjä-/DB-nimeä: `docker compose exec database psql -U miettis_park -d miettis_park -c "SELECT id, parking_fee_configuration FROM parking_garages; SELECT id, number, current_status FROM parking_lots ORDER BY number;"`. Odotus yksi halli, viisi paikkaa, hinnastossa 0.50/0.30 ja TimeSpan 10 min/3 h.
+4. Avaa suoraan `/admin` uuteen välilehteen ja tee hard refresh sekä `/`- että `/admin`-reitillä. SPA avautuu, suhteelliset API-haut onnistuvat, ei erillistä Node-palvelua. Tarkista myös ettei puuttuva `/api/...` muutu HTML-200-vastaukseksi.
+
+#### 2. Selaimen pakollinen polku ja itsenäiset havainnot
+
+1. Syötä testirekisteri TEST-001 ja kirjaa sisäänajo. Valitse vapaa paikka 1 ja yhdistä siihen käynti. Vapauta paikka erillisellä toiminnolla, valitse paikka 2 samalle käynnille. Käynnin alku säilyy.
+2. Reload `/`: aktiivinen käynti ja paikka tulevat API:sta. Jatka ulosajoon; kuitti näyttää rekisterin, palvelinajat, keston ja eurohinnan. Paikka 2 pysyy Occupied-tilassa ja Parking aktiivisena, kunnes simuloit vapautushavainnon. Toistettu ulosajo: portti kiinni/asiakaspalvelu, ei uutta kuittia eikä aiemman Costin muutosta.
+3. Täytä kaikki viisi paikkaa **ilman käyntiyhteyttä**. Täysi halli on tieto ja uusi rekisterin sisäänajo onnistuu silti. Occupied-paikka ei tarjoa valintaa. Vapauta paikkoja niiden omalla komennolla.
+4. Unknown-tilan erillinen fixture, vain omassa testikannassa ja vapaalle paikalle: `docker compose exec database psql -U miettis_park -d miettis_park -c "UPDATE parking_lots SET current_status='Unknown' WHERE number=5 AND current_status='Free';"`. Päivitä UI: Unknown ei ole valittavissa, mutta vapautushavainto palauttaa Free-tilan myös ilman Parkingia. Palauta fixture tällä sovelluksen komennolla; älä tee tuotantodatan korjausta SQL:llä.
+5. Kirjaa TEST-DUP sisään ja heti sama rekisteri uudelleen: Duplicate, sama alku/VisitId. Kytke halutessasi paikka. Yli oletuksen 2 minuutin jälkeen uusi havainto: recovery-varoitus, vanha Interrupted ilman EndAt/Costia, uusi käynti/uusi laskutusalku; vanha paikka/historiallinen yhteys säilyy. Tarvittaessa erillisessä testiajossa aseta Parking__DuplicateEntryWindow lyhyemmäksi; palauta oletus jälkeenpäin. Täsmällinen 3 h / +1 tick testataan yllä testikellolla, ei selaimen odottamisella tai julkisella kellonmuokkaus-API:lla.
+6. Ulosajo rekisterillä TEST-MISSING ilman sisäänajoa: ACTIVE_VISIT_NOT_FOUND/asiakaspalvelu, portti kiinni, ei arvattua hintaa tai keksittyä yhteystietoa. Kahdessa välilehdessä jo käytetyn paikan kirjoitusyritys palauttaa hallitun konfliktin ja refreshin; DOM-painikkeiden esto ei korvaa backend-tarkistusta.
+7. Tarkista labelit, Tab/Shift+Tab/Enter/Space, näkyvä fokus ja status/alert ilman pelkkään väriin luottamista; tarkista kapea/leveä näyttö ja kuittitiedot. Kirjaa oikean selaimen visuaalinen/näppäimistötulos erikseen DOM-näytöstä.
+
+#### 3. Admin ja restart-pysyvyys
+
+1. Jätä aktiiviseksi tunnistamaton Parking, suljettuun Visitiin liittyvä Parking sekä uuden aktiivisen Visitin puuttuva paikkayhteys. Avaa `/admin` suoraan/refresh: kaikki Parkingit näkyvät, tuntematon rekisteri ”Ei tiedossa”, historiallinen rekisteri ei yhdisty uuteen Visitiin. Erillisen käyntitaulukon null-paikka ”Paikka ei tiedossa”.
+2. Vertaa määrät availability-JSONiin. Vertaa taulukon paikka/alku active parkings -JSONiin: kulunut aika alkaa Parking.startAt:sta ja päivittyy onnistuneessa refreshissä. Päivityshetki ja ei-laskutusperuste-huomautus näkyvät. Tarkista lataus/virhe/retry, `/`-paluu, fokus/caption/otsikot sekä kapean näytön vaakavieritys näppäimistöllä.
+3. Ennen restartia tallenna testirekisterien Visit-rivien id/status/start_at/end_at/closed_at/cost sekä Parking-/paikkatilat psql-lukukyselyllä. Säilytä myös aiemman kuitin tulos, koska API ei tarjoa historiakuittihakua.
+4. Aja `docker compose restart app` (älä poista DB-volumea). Tarkista lokit/GETit ja molempien SPA-reittien refresh. Aiempi aktiivinen Visit/Parking voidaan jatkaa; tallennettu Completed-kuitti Cost/EndAt/ClosedAt on DB:ssä ennallaan ja seed edelleen yksi halli/viisi paikkaa. Toista tarvittaessa `docker compose down` ja `docker compose up -d` ilman `-v`:tä; tietojen pitää säilyä. Restart-pysyvyys ei ole nykyisten InMemory-testien näyttöä.
+
+#### 4. PostgreSQL-lukot, kilpailut, rajoitteet ja rollback — erillinen tarkistus
+
+Käytä todellista PostgreSQL:ää ja erillisiä DB-yhteyksiä/DbContexteja. Koordinoi kaksi kirjoitusta yhteiseen aloitusesteeseen, älä suorita niitä peräkkäin tai luota sleep-ajoitukseen. Toista nykyisen ConcurrencyTests-matriisin tapaukset oikealla tuotannon transaktiotehtaalla: sama paikka, sama Visit eri paikoille, sama normalisoitu rekisteri uutena ja recoveryssa, eri rekisterit täydellä hallilla sekä eri paikkojen null VisitId:t. Tarkista molemmat vastaukset ja lopputila tuoreesta yhteydestä: yksi Active per paikka/non-null Visit, yksi Active per garage/rekisteri; tunnettu häviäjä hallittu 409, sisäänajossa normaalisti Entry/recovery + Duplicate, eri null-paikat molemmat onnistuvat.
+
+Pidä ensimmäisen yhteyden hallilukko avoimena ja tarkista toisesta odotus/pg_locks; paikkalukon pitää tulla hallin jälkeen. Vahvista partial Active -indeksien null-käytös, FK/lifecycle-rajoitteiden runtime ja rollback injektoidussa recoveryn lisäys-/commit-virheessä oikean DB:n päällä: vanhan sulkeminen ei jää voimaan epäonnistuneesta transaktiosta. Tämä vaatii erillisen ihmisen testiajurin/testiin rajatun virhesauman, ei tuotannon julkista debug-API:a. Raportoi puuttuva runtime-näyttö avoimeksi. Olemassa oleva paikallinen semafori/tilannekuvarollback ei todista mitään näistä DB-moottorin ominaisuuksista.
+
+### Luovutus ja integraation todellinen tila
+
+Platformin milestone 59 on InProgress, branch milestone/59. Sen git log sisältää PARK-01 `2715700` (PR #1), PARK-02 `4a98c71` (PR #2), PARK-04 `b0986bf` (PR #3) ja pohjan `a82ca21`. PARK-03/item 1119 on tämän dokumentin kirjoitushetkellä toteutuksessa: sen integraatiota ei ole vielä tehty tai väitetty tehdyksi. Lead toimittaa lopullisen revision kolme verification-avainta ja todennetun checklistin SubmitImplementationiin; PullPotential hoitaa commitit/PR:n/integraation. Ihmisen milestone-release/tagi ja GHCR-oikeuksien julkaisuajo ovat erillisiä, eivät tämän tehtävän toimia.
+
+Jatkajan sopimukset: kahdeksan nykyistä API-reittiä/DTO:t; Visit/Parking itsenäisiä ja VisitId nullable; halli-ennen-paikkaa/transaktio sekä recoveryn sulkeminen-ennen-lisäystä; laskutus vain palvelimen TimeProvider/decimal/ticks. Tarkistuskomennot yllä. Avoinna ovat tämän runbookin oikea selain/kontti/PostgreSQL/restart, pohjan tunnetut riippuvuushavainnot, mahdollinen pysyvä request-id/asiakaspalvelukorjaus ja henkilötietojen säilytys/suojaus ennen oikeaa käyttöä. Ei uutta backlogia tai väitettä tuotantovalmiudesta.
