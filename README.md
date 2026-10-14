@@ -202,3 +202,7 @@ Paikallinen kertynyt näyttö: **162 backend-testiä, 0 epäonnistunutta/ohitett
 Jatkajan sopimukset: nykyiset ylläpito-/simulaatioreitit ja DTO:t yllä; Layout PUT käyttää expectedVersionia ja täsmällisiä removedLotIds-arvoja. IsActive säilyttää historian, siirto ei vaihda ID:tä, Visitin sulkeminen ei vapauta Parkingia. ReadCommitted/halli-ennen-paikkaa ja decimal/tick/TimeProvider säilyvät. SSE on yhden prosessin commitin jälkeinen invalidointi; reconnect hakee snapshotin ja editoriluonnos säilyttää odotetun version. MapLibre 6.14.0/OpenFreeMap, paikallinen worker ja avaimeton Liberty-style säilyvät. Tarkistuskomennot: `node scripts\openapi.mjs`, `dotnet build MiettisPark.slnx -c Release`, `dotnet test MiettisPark.slnx -c Release`, `npm run check`.
 
 Oikeat selain/WebGL/kartta-, Docker/PostgreSQL/restart- ja kahden selaimen proxy-SSE-ajot ovat **AJAMATTA**, myöhemmälle ihmiselle; eivät agentin submission-portteja. Ihmisen lopullinen ympäristöhyväksyntä, milestone-release, SemVer-tagi ja image-julkaisu ovat erillisiä. Ei manuaalista Git-finalisointia, julkaisua tai deployta. Tunnetut npm-audit/build-varoitukset on kirjattu, ei yleistä upgrade-urakkaa tai turvallisuushyväksyntäväitettä.
+
+## V3-suunnitelma
+
+Autokuvasta tunnistettu rekisteri kirjaa sisäänajon ilman manuaalista hyväksyntää; simulaatiotapahtumille voi valita ajan. [SPEC-V3.md](SPEC-V3.md) ja [BACKLOG-V3.md](BACKLOG-V3.md). Kyse on suunnitelmasta; v3-työitemeitä tai toteutusta ei luotu tällä toimeksiannolla.
