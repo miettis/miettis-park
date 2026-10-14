@@ -90,6 +90,7 @@ public sealed class TestTransactions(ParkingDbContext database, TestCoordinator?
         private readonly List<Visit> visits;
         private readonly List<Parking> parkings;
         private readonly List<ParkingLot> lots;
+        private readonly List<ParkingGarage> garages;
         private bool committed;
         public Transaction(TestTransactions owner, ParkingDbContext database)
         {
@@ -98,6 +99,18 @@ public sealed class TestTransactions(ParkingDbContext database, TestCoordinator?
             visits = Snapshot<Visit>();
             parkings = Snapshot<Parking>();
             lots = Snapshot<ParkingLot>();
+            garages = Snapshot<ParkingGarage>();
+            foreach (var garage in garages)
+            {
+                garage.LayoutCells = garage.LayoutCells.Select(cell => cell with { }).ToList();
+                garage.ParkingFeeConfiguration = garage.ParkingFeeConfiguration.Select(tier => new ParkingFeeTier
+                {
+                    Amount = tier.Amount,
+                    PerUnit = tier.PerUnit,
+                    StartDuration = tier.StartDuration,
+                    EndDuration = tier.EndDuration
+                }).ToList();
+            }
         }
 
         private List<T> Snapshot<T>() where T : class
@@ -109,7 +122,7 @@ public sealed class TestTransactions(ParkingDbContext database, TestCoordinator?
         public Task<ParkingGarage?> LockGarageAsync(int garageId, CancellationToken cancellationToken)
         {
             owner.Events.Add($"garage:{garageId}");
-            return database.ParkingGarages.AsNoTracking().SingleOrDefaultAsync(x => x.Id == garageId, cancellationToken);
+            return database.ParkingGarages.SingleOrDefaultAsync(x => x.Id == garageId, cancellationToken);
         }
 
         public Task<ParkingLot?> LockLotAsync(int garageId, int lotId, CancellationToken cancellationToken)
@@ -140,8 +153,10 @@ public sealed class TestTransactions(ParkingDbContext database, TestCoordinator?
                     database.Parkings.RemoveRange(database.Parkings);
                     database.Visits.RemoveRange(database.Visits);
                     database.ParkingLots.RemoveRange(database.ParkingLots);
+                    database.ParkingGarages.RemoveRange(database.ParkingGarages);
                     database.SaveChanges();
                     database.ChangeTracker.Clear();
+                    database.ParkingGarages.AddRange(garages);
                     database.ParkingLots.AddRange(lots);
                     database.Visits.AddRange(visits);
                     database.Parkings.AddRange(parkings);
@@ -169,6 +184,7 @@ public sealed class TestStore : IDisposable
     public ParkingDbContext Database { get; }
     public TestTransactions Transactions { get; }
     public ParkingService Service { get; }
+    public GarageManagementService Management { get; }
 
     public ParkingOptions Options { get; } = new();
     public TestStore()
@@ -177,6 +193,7 @@ public sealed class TestStore : IDisposable
         Database = NewContext();
         Database.Database.EnsureCreated();
         Transactions = new TestTransactions(Database, Coordinator);
+        Management = new GarageManagementService(Database, Transactions);
         Service = new ParkingService(Database, Clock, new ParkingFeeCalculator(), Transactions, Microsoft.Extensions.Options.Options.Create(Options));
     }
 
@@ -210,6 +227,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Clock);
             services.RemoveAll<IParkingWriteTransactionFactory>();
+            services.AddSingleton<TestCoordinator>();
             services.AddScoped<IParkingWriteTransactionFactory, TestTransactions>();
         });
     }

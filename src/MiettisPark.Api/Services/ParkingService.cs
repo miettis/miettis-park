@@ -6,18 +6,22 @@ using Microsoft.Extensions.Options;
 
 namespace MiettisPark.Api.Services;
 
-public sealed class ParkingService(ParkingDbContext database, TimeProvider clock, ParkingFeeCalculator fees, IParkingWriteTransactionFactory transactions, IOptions<ParkingOptions> options)
+public sealed class ParkingService(ParkingDbContext database, TimeProvider clock, ParkingFeeCalculator fees, IParkingWriteTransactionFactory transactions, IOptions<ParkingOptions> options, IGarageEventPublisher? events = null)
 {
     public async Task<List<GarageDto>> GetGaragesAsync(CancellationToken cancellationToken)
     {
         return await database.ParkingGarages.AsNoTracking().OrderBy(x => x.Id)
-            .Select(x => new GarageDto(x.Id, x.Name)).ToListAsync(cancellationToken);
+            .Select(x => new GarageDto(x.Id, x.Name, x.Address, x.Latitude, x.Longitude,
+                x.Lots.Count(l => l.IsActive), x.Lots.Count(l => l.IsActive && l.CurrentStatus == ParkingLotStatus.Free),
+                x.Lots.Count(l => l.IsActive && l.CurrentStatus == ParkingLotStatus.Occupied),
+                x.Lots.Count(l => l.IsActive && l.CurrentStatus == ParkingLotStatus.Unknown),
+                !x.Lots.Any(l => l.IsActive && l.CurrentStatus == ParkingLotStatus.Free))).ToListAsync(cancellationToken);
     }
 
     public async Task<AvailabilityDto> GetAvailabilityAsync(int garageId, CancellationToken cancellationToken)
     {
         await RequireGarageAsync(garageId, cancellationToken);
-        var lots = await database.ParkingLots.AsNoTracking().Where(x => x.ParkingGarageId == garageId)
+        var lots = await database.ParkingLots.AsNoTracking().Where(x => x.ParkingGarageId == garageId && x.IsActive)
             .OrderBy(x => x.Number).Select(x => new LotDto(x.Id, x.Number, x.CurrentStatus)).ToListAsync(cancellationToken);
         var activeVisits = await database.Visits.CountAsync(x => x.ParkingGarageId == garageId && x.Status == VisitStatus.Active, cancellationToken);
         var free = lots.Count(x => x.CurrentStatus == ParkingLotStatus.Free);
@@ -38,7 +42,7 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
     public async Task<List<ActiveParkingDto>> GetActiveParkingsAsync(int garageId, CancellationToken cancellationToken)
     {
         await RequireGarageAsync(garageId, cancellationToken);
-        return await database.Parkings.AsNoTracking().Where(x => x.ParkingLot.ParkingGarageId == garageId && x.Status == ParkingStatus.Active)
+        return await database.Parkings.AsNoTracking().Where(x => x.ParkingLot.ParkingGarageId == garageId && x.ParkingLot.IsActive && x.Status == ParkingStatus.Active)
             .OrderBy(x => x.ParkingLot.Number).Select(x => new ActiveParkingDto(x.Id, x.ParkingLotId, x.ParkingLot.Number,
                 x.VisitId, x.Visit == null ? null : x.Visit.LicenseNumber, x.StartAt)).ToListAsync(cancellationToken);
     }
@@ -79,6 +83,11 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
         return WriteAsync(garageId, async (_, transaction, token) =>
         {
             var lot = await transaction.LockLotAsync(garageId, lotId, token) ?? throw ParkingError.NotFound("LOT_NOT_FOUND");
+            if (!lot.IsActive)
+            {
+                throw ParkingError.NotFound("LOT_NOT_FOUND");
+            }
+
             if (lot.CurrentStatus != ParkingLotStatus.Free)
             {
                 throw ParkingError.Conflict("LOT_UNAVAILABLE");
@@ -112,6 +121,11 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
         return WriteAsync(garageId, async (_, transaction, token) =>
         {
             var lot = await transaction.LockLotAsync(garageId, lotId, token) ?? throw ParkingError.NotFound("LOT_NOT_FOUND");
+            if (!lot.IsActive)
+            {
+                throw ParkingError.NotFound("LOT_NOT_FOUND");
+            }
+
             var parking = await database.Parkings.SingleOrDefaultAsync(x => x.ParkingLotId == lotId && x.Status == ParkingStatus.Active, token);
             var missingObservation = parking == null && lot.CurrentStatus != ParkingLotStatus.Free;
             if (parking != null)
@@ -163,10 +177,15 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
     {
         try
         {
-            await using var transaction = await transactions.BeginAsync(cancellationToken);
-            var garage = await transaction.LockGarageAsync(garageId, cancellationToken) ?? throw ParkingError.NotFound("GARAGE_NOT_FOUND");
-            var result = await action(garage, transaction, cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            T result;
+            await using (var transaction = await transactions.BeginAsync(cancellationToken))
+            {
+                var garage = await transaction.LockGarageAsync(garageId, cancellationToken) ?? throw ParkingError.NotFound("GARAGE_NOT_FOUND");
+                result = await action(garage, transaction, cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+
+            events?.Publish(new GarageChanged(garageId, "occupancy"));
             return result;
         }
         catch (DbUpdateException exception) when (exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } postgres
@@ -181,6 +200,11 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
                 _ => "ACTIVE_VISIT_CONFLICT"
             };
             throw ParkingError.Conflict(code);
+        }
+        catch
+        {
+            database.ChangeTracker.Clear();
+            throw;
         }
     }
 }
