@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace MiettisPark.Api.Services;
 
-public sealed class ParkingService(ParkingDbContext database, TimeProvider clock, ParkingFeeCalculator fees, IParkingWriteTransactionFactory transactions, IOptions<ParkingOptions> options)
+public sealed class ParkingService(ParkingDbContext database, TimeProvider clock, ParkingFeeCalculator fees, IParkingWriteTransactionFactory transactions, IOptions<ParkingOptions> options, IGarageEventPublisher? events = null)
 {
     public async Task<List<GarageDto>> GetGaragesAsync(CancellationToken cancellationToken)
     {
@@ -177,10 +177,15 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
     {
         try
         {
-            await using var transaction = await transactions.BeginAsync(cancellationToken);
-            var garage = await transaction.LockGarageAsync(garageId, cancellationToken) ?? throw ParkingError.NotFound("GARAGE_NOT_FOUND");
-            var result = await action(garage, transaction, cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            T result;
+            await using (var transaction = await transactions.BeginAsync(cancellationToken))
+            {
+                var garage = await transaction.LockGarageAsync(garageId, cancellationToken) ?? throw ParkingError.NotFound("GARAGE_NOT_FOUND");
+                result = await action(garage, transaction, cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+
+            events?.Publish(new GarageChanged(garageId, "occupancy"));
             return result;
         }
         catch (DbUpdateException exception) when (exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } postgres

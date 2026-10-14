@@ -1,4 +1,5 @@
-import { computed, inject, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, onBeforeUnmount, ref } from 'vue'
+import { createResync, useGarageEvents } from '../services/garageEvents'
 import { garageApiKey, HttpGarageApi, type GarageManagementApi } from '../services/garageApi'
 import type { GarageDto, GarageInputDto, GarageLayoutDto, GarageLayoutInputDto, LayoutCellInputDto, LayoutCellType } from '../types/garage'
 
@@ -10,21 +11,14 @@ export function useGarageAdmin(api: GarageManagementApi = inject(garageApiKey, n
   const submitting = ref(false)
   const savedGarage = ref<GarageDto | null>(null)
 
-  async function refresh(): Promise<void> {
+  const sync = createResync(async signal => {
     loading.value = true
-    error.value = ''
-    try {
-      garages.value = await api.getGarages()
-    }
-    catch (cause) {
-      error.value = cause instanceof Error ? cause.message : 'Halleja ei voitu hakea.'
-    }
-    finally {
-      initialized.value = true
-      loading.value = false
-    }
-  }
-
+    const next = await api.getGarages(signal)
+    return () => { garages.value = next; error.value = ''; initialized.value = true; loading.value = false }
+  }, cause => { error.value = cause instanceof Error ? cause.message : 'Halleja ei voitu hakea.'; loading.value = false; initialized.value = true })
+  const refresh = () => sync.refresh()
+  useGarageEvents(() => refresh())
+  onBeforeUnmount(() => sync.dispose())
   async function save(input: GarageInputDto, id: number | null): Promise<GarageDto | null> {
     submitting.value = true
     error.value = ''
@@ -121,6 +115,7 @@ export function useLayoutDraft(api: GarageManagementApi, garageId: number) {
     error.value = ''
     try {
       applyLayout(await api.getLayout(garageId))
+      await live.refresh()
     }
     catch (cause) {
       error.value = describeApiError(cause)
@@ -256,6 +251,20 @@ export function useLayoutDraft(api: GarageManagementApi, garageId: number) {
     }
   }
 
+  const live = createResync(async signal => {
+    const next = await api.getLayout(garageId, signal)
+    return () => {
+      if (!original.value) return
+      if (next.version !== original.value.version) notice.value = 'Hallin pohjaa on muutettu muualla. Luonnos säilyy; lataa pohja uudelleen.'
+      const meta = new Map(next.lots.map(lot => [lot.id, lot]))
+      original.value = { ...original.value, lots: original.value.lots.map(lot => {
+        const current = meta.get(lot.id)
+        return { ...lot, currentStatus: current?.currentStatus ?? lot.currentStatus, canRemove: current?.canRemove ?? false }
+      }) }
+    }
+  }, cause => { error.value = describeApiError(cause) })
+  useGarageEvents(change => { if (!change || change.garageId === garageId) return live.refresh() })
+  onBeforeUnmount(() => live.dispose())
   onMounted(() => void load())
   return { original, width, height, cells, previewNumbers, lotNumbers, loading, saving, error, notice, initialized, mode, movingLotId, dirty, load, resize, paint, moveLot, setLotNumber, undo, createPayload, save }
 }

@@ -27,6 +27,25 @@
         }
       }
     },
+    "/api/garages/events": {
+      "get": {
+        "tags": [
+          "GarageEvents"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/garages": {
       "get": {
         "tags": [
@@ -1462,6 +1481,9 @@
   "tags": [
     {
       "name": "MiettisPark.Api"
+    },
+    {
+      "name": "GarageEvents"
     },
     {
       "name": "Garages"

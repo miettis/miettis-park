@@ -210,3 +210,17 @@ Toteutuksen aikana korjattiin delegoidun UI:n 30-ruudun raja, hiljainen paikkoje
 4. Oikea selain/WebGL/OpenFreeMap: renderöinti, attribuutio ja lähdelinkit, verkon katkeaminen/retry, touch-vetomaalaus, näppäimistöfokus ja responsiivinen ulkoasu. DOM-stubi ei todista näitä.
 
 Luovutus PARK-V2-02: README dokumentoi layout DTO/versionin, IsActive-ehdon, lukitus-/numerointisopimuksen, commit-kohdat ja jaetun GarageMapin props/select/worker-käytön. Julkinen hallikartta, uusi simulaatioreitti ja SSE ovat toteuttamatta tässä itemissä tarkoituksella. Ei releasea tai deployta.
+
+## PARK-V2-02 – paikallinen toteutusnäyttö
+
+Lähtöhaara sisälsi PARK-V2-01:n commitin `6d4bcdb` (#8); worktree oli aluksi puhdas. Toteutus lisää `/`-hallikartan/listan, `/garages/{id}`-simulaation ja commitin jälkeisen SSE-invalidoinnin. Ei mallimuutosta.
+
+xUnit käyttää oikeita tuotantopalveluja, testikelloa ja testiin rajattua EF InMemory/snapshot-transaktiotuplaa sekä prosessinsisäistä TestServeriä. Julkaisu tarkistetaan commitin/disposen jälkeen; save-/commit-rollback, invalidit ID:t, layout-version konflikti ja Visitin riippumattomuus säilyvät. Publisher-testit kattavat fanoutin ja 64-viestin ylivuodon. Stream-testit kattavat alkukehyksen, anonyymin payloadin, headerit, testikellon heartbeatin, hitaan kirjoituksen aikarajan ja request-peruutuksen siivouksen. EF/Npgsql-malli-, migraatio-SQL- ja HasPendingModelChanges-testit säilyvät mukana. Tupla ei todista PostgreSQL:n lukitus-/kilpailusemantiikkaa.
+
+Vitest/jsdom käyttää karttaloader-, EventSource- ja Promise-tuplia. Mukana kartan elinkaari/virhe/retry/marker-päivitykset/koordinaatit, ruudukon tilat, MVP-simulaation regressiot, initial-fetch-race/duplikaatit, reitinvaihto/myöhäinen kuitti, reconnect/resync-virhe, viimeisen datan ja aktiivisen syötteen/valinnan säilyminen sekä editorin muuttumaton luonnos/expectedVersion.
+
+Offline OpenAPI: `node scripts\openapi.mjs`. Platform-evidence: `backend-build` = `dotnet build MiettisPark.slnx -c Release`, `backend-tests` = `dotnet test MiettisPark.slnx -c Release`, `frontend-checks` = `npm run check` (clean ci, lint, typecheck, DOM, staattinen build). Tarkat nykyrevision exitit/raportit tallentuvat PullPotentialin verification-evidenceen; aiempien itemien raportit eivät korvaa niitä.
+
+**Ajamatta, myöhemmälle ihmiselle:** oikea PostgreSQL-migraatio/lukitus/kilpailu/rollback, Docker/SPA-refresh/restart-pysyvyys, oikea selain/WebGL/OpenFreeMap sekä kahden selaimen SSE tuotantoproxyn läpi. Yhden prosessin muistijulkaisija ei tarjoa hajautettua fanoutia eikä kestävää replayta/outboxia. Proxyn buffering off, no-transform ja heartbeatia pidempi idle timeout on tarkistettava ympäristössä. Ulkoisia tarkistuksia ei väitetä hyväksytyiksi. Pohjan tunnetut npm-audit/build-varoitukset säilyvät erillisinä havaintoina.
+
+Viimeisin paikallinen ajo: backend 161 läpäistyä / 0 epäonnistunutta / 0 ohitettua; frontend 62 DOM/client-testiä läpäisty, lint ja typecheck läpäisty. Pakollinen clean-build-näyttö kirjataan lisäksi nykyrevision platform-raportteihin.

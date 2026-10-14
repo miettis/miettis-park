@@ -32,6 +32,8 @@ builder.Services.AddOptions<ParkingOptions>()
     .BindConfiguration("Parking")
     .Validate(options => options.DuplicateEntryWindow >= TimeSpan.Zero, "Parking:DuplicateEntryWindow must not be negative.")
     .ValidateOnStart();
+builder.Services.AddSingleton<GarageEventPublisher>();
+builder.Services.AddSingleton<IGarageEventPublisher>(services => services.GetRequiredService<GarageEventPublisher>());
 builder.Services.AddSingleton<ParkingFeeCalculator>();
 builder.Services.AddScoped<IParkingWriteTransactionFactory, ParkingWriteTransactionFactory>();
 builder.Services.AddScoped<ParkingService>();
