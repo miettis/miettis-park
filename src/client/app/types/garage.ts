@@ -1,9 +1,60 @@
 export type LotStatus = 'Free' | 'Occupied' | 'Unknown'
+export type LayoutCellType = 'Empty' | 'Road' | 'ParkingLot'
 export type EntryOutcome = 'Entry' | 'Duplicate' | 'RecoveredMissingExit'
 
 export interface GarageDto {
   id: number
   name: string
+  address: string | null
+  latitude: number | null
+  longitude: number | null
+  capacity: number
+  freeLots: number
+  occupiedLots: number
+  unknownLots: number
+  isFull: boolean
+}
+
+export interface GarageInputDto {
+  name: string
+  address: string | null
+  latitude: number | null
+  longitude: number | null
+}
+
+export interface LayoutCellDto {
+  x: number
+  y: number
+  type: LayoutCellType
+  lotId: number | null
+}
+
+export interface LayoutLotDto {
+  id: number
+  number: number
+  currentStatus: LotStatus
+  canRemove: boolean
+}
+
+export interface GarageLayoutDto {
+  garageId: number
+  width: number
+  height: number
+  version: number
+  cells: LayoutCellDto[]
+  lots: LayoutLotDto[]
+}
+
+export interface LayoutCellInputDto extends LayoutCellDto {
+  number: number | null
+}
+
+export interface GarageLayoutInputDto {
+  expectedVersion: number
+  width: number
+  height: number
+  cells: LayoutCellInputDto[]
+  removedLotIds: number[]
 }
 
 export interface LotDto {

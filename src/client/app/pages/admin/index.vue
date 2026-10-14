@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import AvailabilitySummary from '../components/AvailabilitySummary.vue'
-import { elapsedLabel, timeLabel, useAdminDashboard } from '../composables/useAdminDashboard'
+import AvailabilitySummary from '../../components/AvailabilitySummary.vue'
+import { elapsedLabel, timeLabel, useAdminDashboard } from '../../composables/useAdminDashboard'
 
 const { selectedGarage, availability, parkings, visits, updatedAt, loading, initialized, error, refresh } = useAdminDashboard()
 </script>
@@ -13,6 +13,7 @@ const { selectedGarage, availability, parkings, visits, updatedAt, loading, init
       <nav aria-label="Päänavigaatio">
         <a href="/">↗ Porttisimulaatio</a>
         <a href="/admin" aria-current="page">▦ Hallinta</a>
+        <a href="/admin/garages">Hallit</a>
       </nav>
       <div class="sidebar-bottom">Paikallinen simulaatio · Lukeva näkymä</div>
     </aside>

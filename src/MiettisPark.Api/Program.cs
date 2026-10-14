@@ -35,6 +35,7 @@ builder.Services.AddOptions<ParkingOptions>()
 builder.Services.AddSingleton<ParkingFeeCalculator>();
 builder.Services.AddScoped<IParkingWriteTransactionFactory, ParkingWriteTransactionFactory>();
 builder.Services.AddScoped<ParkingService>();
+builder.Services.AddScoped<GarageManagementService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<ParkingDbContext>(options =>
 {

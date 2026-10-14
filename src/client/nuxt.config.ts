@@ -3,6 +3,7 @@ import process from 'node:process'
 export default defineNuxtConfig({
   compatibilityDate: '2026-10-14',
   modules: ['@nuxt/eslint'],
+  css: ['maplibre-gl/dist/maplibre-gl.css'],
   ssr: false,
   devtools: { enabled: true },
   app: {

@@ -51,6 +51,7 @@ function money(value: number, currency: string): string {
           <span aria-hidden="true">▦</span> Paikkatilanne
         </button>
         <a href="/admin">▦ Hallinta</a>
+        <a href="/admin/garages">Hallit</a>
       </nav>
       <div class="sidebar-bottom">
         <span class="connection-dot" aria-hidden="true" />

@@ -1,14 +1,14 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import AdminPage from './admin.vue'
+import AdminPage from './admin/index.vue'
 import IndexPage from './index.vue'
 import { elapsedLabel } from '../composables/useAdminDashboard'
 import { garageApiKey, HttpGarageApi, type GarageApi } from '../services/garageApi'
-import type { ActiveParkingDto, ActiveVisitDto, AvailabilityDto } from '../types/garage'
+import type { ActiveParkingDto, ActiveVisitDto, AvailabilityDto, GarageDto } from '../types/garage'
 
 function stub() {
   return {
-    getGarages: vi.fn(async () => [{ id: 1, name: 'Testihalli' }]),
+    getGarages: vi.fn(async (): Promise<GarageDto[]> => [{ id: 1, name: 'Testihalli', address: null, latitude: null, longitude: null, capacity: 9, freeLots: 0, occupiedLots: 7, unknownLots: 2, isFull: true }]),
     getAvailability: vi.fn(async (): Promise<AvailabilityDto> => ({ capacity: 9, freeLots: 0, occupiedLots: 7, unknownLots: 2, activeVisits: 12, isFull: true, lots: [] })),
     getActiveParkings: vi.fn(async (): Promise<ActiveParkingDto[]> => [
       { parkingId: 1, lotId: 1, lotNumber: 1, visitId: 10, licenseNumber: 'HIST-123', startAt: '2026-10-14T10:15:00Z' },
@@ -82,7 +82,7 @@ describe('read-only admin dashboard', () => {
 
   it('shows initial loading and separately empty parking and visit states', async () => {
     const api = stub()
-    const garages = deferred<{ id: number, name: string }[]>()
+    const garages = deferred<{ id: number, name: string, address: string | null, latitude: number | null, longitude: number | null, capacity: number, freeLots: number, occupiedLots: number, unknownLots: number, isFull: boolean }[]>()
     api.getGarages.mockReturnValueOnce(garages.promise)
     api.getActiveParkings.mockResolvedValue([])
     api.getActiveVisits.mockResolvedValue([])
@@ -90,7 +90,7 @@ describe('read-only admin dashboard', () => {
     await flushPromises()
     expect(wrapper.get('[role="status"]').text()).toContain('Haetaan')
     expect(wrapper.get('.refresh-button').attributes('disabled')).toBeDefined()
-    garages.resolve([{ id: 1, name: 'Testihalli' }])
+    garages.resolve([{ id: 1, name: 'Testihalli', address: null, latitude: null, longitude: null, capacity: 9, freeLots: 0, occupiedLots: 7, unknownLots: 2, isFull: true }])
     await flushPromises()
     expect(wrapper.text()).toContain('Aktiivisia pysäköintejä ei ole.')
     expect(wrapper.text()).toContain('Aktiivisia hallikäyntejä ei ole.')
