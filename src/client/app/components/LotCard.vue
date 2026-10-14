@@ -22,6 +22,12 @@ watch(() => props.lot.currentStatus, (status) => {
   }
 })
 
+watch(() => props.visits, (visits) => {
+  if (visitId.value && !visits.some(visit => String(visit.visitId) === visitId.value)) {
+    visitId.value = ''
+  }
+})
+
 function enter(): void {
   if (!canEnter() || props.submitting) {
     return

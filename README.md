@@ -119,4 +119,23 @@ node scripts/openapi.mjs
 
 **Näytön raja:** InMemory/testitupla ei todista PostgreSQL-transaktioita, rollbackia, lukituksia, kilpailuja, SQL-rajoitteiden ajonaikaista toimintaa tai restart-pysyvyyttä. Oikean PostgreSQL:n, Dockerin ja selaimen/visuaalisen hyväksynnän tarkistukset tehdään myöhemmin ihmisen toimesta; ne eivät ole tämän agenttityön submission-portteja. Tarkat suoritetut/epäonnistuneet/ajamattomat tarkistukset: [VALIDATION.md](VALIDATION.md).
 
-**PARK-02:** aktiivisen rekisterin uusintasisäänajo palauttaa tässä paketissa saman Visitin `Duplicate`-tuloksena iästä riippumatta. Konfiguroitava kahden minuutin raja, `RecoveredMissingExit`, vanhan käynnin `Interrupted`/`MissingExitBeforeNewEntry` ja laajempi kilpailu-/poikkeamatestimatriisi jäävät PARK-02:lle. Keskeytys ei saa vapauttaa paikkaa tai siirtää vanhaa Parking-yhteyttä. Nykyinen virhe-/tulossopimus ja testisauma ovat jatkokäyttöön valmiit. MVP-järjestys on PARK-01 → PARK-02 → PARK-04 → PARK-03; hallinta ei kuulu tähän itemiin. Ei authia, maksamista, varauksia tai deploymentin uudelleenrakentamista.
+## PARK-02: uusintasisäänajo ja poikkeamat
+
+`Parking:DuplicateEntryWindow` (ympäristömuuttuja `Parking__DuplicateEntryWindow`) on .NETin TimeSpan-merkkijono, oletus `00:02:00`. Esimerkiksi `00:00:30` muuttaa rajan 30 sekuntiin. Negatiivinen tai virheellisen muotoinen asetus hylätään käynnistyksessä; nolla sallii Duplicaten vain samalla palvelinhetkellä. Ikä lasketaan palvelimen nyt-ajasta alkuperäiseen `Visit.StartAt`:iin tick-tarkkuudella. Toisto ei siirrä ikkunaa.
+
+- Ikä <= raja: `Duplicate`, sama VisitId ja StartAt, ei paikkamuutoksia.
+- Ikä > raja: `RecoveredMissingExit`, vanha Visit `Interrupted`, `ClosureReason=MissingExitBeforeNewEntry`, `ClosedAt=nyt`, `EndAt/Cost=null`. Uusi Active Visit alkaa nyt. Vanhan sulkemisen `SaveChangesAsync` suoritetaan ennen uuden rivin lisäystä saman hallilukitun ReadCommitted-transaktion sisällä; epäonnistuminen rollbackaa molemmat. EF:n INSERT/UPDATE-järjestystä ei arvata.
+- Vanhan Visitin Parking, sen historiallinen VisitId ja paikkatila eivät muutu tai siirry uudelle Visitille. Vain paikan oma vapautushavainto sulkee Parkingin. Tämä toimii myös null VisitId:n ja Completed/Interrupted Visitin yhteydessä.
+- Puuttuva/toistettu ulosajo palauttaa 409 `ACTIVE_VISIT_NOT_FOUND`, `gateOpened=false`, `requiresCustomerService=true`, ei hintaa tai historiallista kuittia. Aiemman kuitin tiedot eivät muutu.
+
+UI erottaa Entry-onnistumisen, Duplicate-informaation, recoveryn saavutettavan varoituksen ja virheen. Onnistuminen ja 409 hakevat saatavuuden, aktiiviset käynnit ja pysäköinnit API:sta uudelleen; suljettu Visit ei jää valittavaksi. Uusi ulosajoyritys poistaa edellisen kuitin, joten epäonnistuminen ei näytä vanhaa onnistumista uutena.
+
+**Heuristiikan rajoitus:** yli rajan tuleva porttihavainto voi aloittaa laskutuksen uudelleen myös virheellisesti tai väärinkäytössä. Tämä ei ole varma häiriön-/väärinkäytöntunnistin. Pysyvää request-id-idempotenssia, asiakaspalvelun manuaalista korjausta/laskutusta tai portin ohitusta ei ole; UI ohjaa asiakaspalveluun keksimättä yhteystietoa. Ei authia, oikeaa maksamista tai varauksia.
+
+### Luovutus PARK-04 / PARK-03
+
+Kahdeksan reittiä ja DTO:t eivät muuttuneet; `RecoveredMissingExit` on nyt toteutettu. Lukeva admin käyttää samoja availability/active visits/active parkings -vastauksia: suljettuun Visitiin liittyvä Parking voi edelleen olla aktiivinen. Null rekisteri tai paikkayhteys tarkoittaa tuntematonta tietoa, ei sijaintipäätelmää. MVP-järjestys PARK-01 → PARK-02 → PARK-04 → PARK-03.
+
+Samalla `dotnet test` -komennolla ajettavat palvelu-/TestServer-testit käyttävät testikelloa. Testiin rajattu transaktiotupla tarjoaa yhteisen serialisoinnin ja tilannekuvan palautuksen; kilpailijat kohtaavat rendezvous-pisteessä ennen lukkoa, erillisillä DbContexteilla, ilman sleep-ajoitusta. Se todistaa palvelun reagoinnin tähän malliin, **ei PostgreSQL:n** lukkoja, uniikkiusrajoitteita tai rollbackia. Offline Npgsql-malli ja idempotentti migraatio-SQL tarkistetaan testeissä; skeemaa ei muutettu.
+
+Oikean PostgreSQL:n synkronoidut kilpailut, halli-ennen-paikkaa-lukitus, indeksien runtime, recoveryn rollback, migraatiot ja restart-pysyvyys sekä Docker/yhden originin SPA-refresh ja oikea selain/visuaalinen hyväksyntä ovat edelleen **ajamatta**, myöhempiä ihmisen tarkistuksia. Ne eivät ole paikallisen agenttihyväksynnän portteja. Komennot ja näyttöraja ovat yllä ja [VALIDATION.md](VALIDATION.md):ssä.

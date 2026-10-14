@@ -2,19 +2,13 @@ import { computed, inject, onMounted, ref } from 'vue'
 import { garageApiKey, HttpGarageApi, type GarageApi } from '../services/garageApi'
 import type { ActiveParkingDto, ActiveVisitDto, AvailabilityDto, EntryDto, GarageDto, ReceiptDto } from '../types/garage'
 
-export type NoticeKind = 'success' | 'error' | 'info'
+export type NoticeKind = 'success' | 'error' | 'info' | 'warning'
 export interface DashboardNotice {
   kind: NoticeKind
   message: string
   code?: string
   gateOpened?: boolean
   requiresCustomerService?: boolean
-}
-
-const outcomeLabels: Record<EntryDto['outcome'], string> = {
-  Entry: 'Sisäänajo kirjattu.',
-  Duplicate: 'Aiempi aktiivinen käynti palautettiin.',
-  RecoveredMissingExit: 'Uusi käynti kirjattu; edellinen suljettiin keskeytyneenä.'
 }
 
 export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new HttpGarageApi()) as GarageApi) {
@@ -81,9 +75,20 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     }
   }
 
-  async function afterMutation(message: string, code?: string): Promise<void> {
-    notice.value = { kind: 'success', message, code }
+  async function afterMutation(message: string, code?: string, kind: NoticeKind = 'success'): Promise<void> {
+    notice.value = { kind, message, code }
     await refresh()
+  }
+
+  function entryMessage(result: EntryDto): string {
+    if (result.outcome === 'Duplicate') {
+      return `Aktiivinen käynti oli jo olemassa. Alkuperäinen alkamisaika: ${new Intl.DateTimeFormat('fi-FI', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(result.startAt))}. ${result.licenseNumber}`
+    }
+    if (result.outcome === 'RecoveredMissingExit') {
+      const startedAt = new Intl.DateTimeFormat('fi-FI', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(result.startAt))
+      return `Huomio: Aiempi käynti keskeytettiin. Uusi laskutus alkoi ${startedAt}. Paikka ei vapautunut. ${result.licenseNumber}`
+    }
+    return `Sisäänajo kirjattu. ${result.licenseNumber}`
   }
 
   async function enterGarage(licenseNumber: string): Promise<void> {
@@ -93,7 +98,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     submitting.value = true
     try {
       const result = await api.enterGarage(garageId.value, licenseNumber.trim())
-      await afterMutation(`${outcomeLabels[result.outcome]} ${result.licenseNumber}`, result.outcome)
+      await afterMutation(entryMessage(result), result.outcome, result.outcome === 'RecoveredMissingExit' ? 'warning' : result.outcome === 'Duplicate' ? 'info' : 'success')
     } catch (cause) {
       notice.value = explainError(cause)
       if ((cause as { status?: number }).status === 409) {
@@ -108,6 +113,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     if (loading.value || submitting.value || garageId.value === null || !licenseNumber.trim()) {
       return
     }
+    receipt.value = null
     submitting.value = true
     try {
       receipt.value = await api.exitGarage(garageId.value, licenseNumber.trim())

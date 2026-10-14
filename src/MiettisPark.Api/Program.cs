@@ -28,6 +28,10 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 });
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ParkingExceptionHandler>();
+builder.Services.AddOptions<ParkingOptions>()
+    .BindConfiguration("Parking")
+    .Validate(options => options.DuplicateEntryWindow >= TimeSpan.Zero, "Parking:DuplicateEntryWindow must not be negative.")
+    .ValidateOnStart();
 builder.Services.AddSingleton<ParkingFeeCalculator>();
 builder.Services.AddScoped<IParkingWriteTransactionFactory, ParkingWriteTransactionFactory>();
 builder.Services.AddScoped<ParkingService>();
