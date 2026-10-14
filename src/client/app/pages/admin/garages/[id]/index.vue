@@ -19,9 +19,15 @@ const longitude = ref<string | number>('')
 const fieldError = ref('')
 const currentGarage = computed(() => id.value === null ? null : garages.value.find(garage => garage.id === id.value) ?? null)
 
+const formGarageId = ref<number | null>(null)
+const externalChange = ref(false)
 watch([initialized, garages], () => {
+  if (currentGarage.value && formGarageId.value === currentGarage.value.id) {
+    externalChange.value = name.value !== currentGarage.value.name || address.value !== (currentGarage.value.address ?? '') || nullableNumber(latitude.value) !== currentGarage.value.latitude || nullableNumber(longitude.value) !== currentGarage.value.longitude
+    return
+  }
   if (currentGarage.value) {
-    name.value = currentGarage.value.name
+    formGarageId.value = currentGarage.value.id; externalChange.value = false; name.value = currentGarage.value.name
     address.value = currentGarage.value.address ?? ''
     latitude.value = currentGarage.value.latitude === null ? '' : String(currentGarage.value.latitude)
     longitude.value = currentGarage.value.longitude === null ? '' : String(currentGarage.value.longitude)
@@ -55,6 +61,7 @@ async function submit(): Promise<void> {
   if (id.value === null) {
     await router.replace(`/admin/garages/${result.id}`)
   }
+  formGarageId.value = null
   await refresh()
 }
 </script>
@@ -69,7 +76,7 @@ async function submit(): Promise<void> {
         <div v-else-if="!isNew && initialized && !currentGarage" class="state-panel" role="alert">Hallia ei löytynyt.</div>
         <template v-else-if="isNew || currentGarage"><form class="panel garage-form" @submit.prevent="submit">
           <p v-if="error" class="form-error" role="alert">{{ error }}</p><p v-if="fieldError" class="form-error" role="alert">{{ fieldError }}</p><p v-if="savedGarage" class="form-success" role="status">Hallin tiedot tallennettiin.</p>
-          <label>Nimi<input v-model="name" required maxlength="120" autocomplete="organization"></label>
+          <p v-if="externalChange" role="status">Hallin tiedot ovat muuttuneet tai lomake poikkeaa palvelimesta. Syötteesi on säilytetty.</p><label>Nimi<input v-model="name" required maxlength="120" autocomplete="organization"></label>
           <label>Osoite<input v-model="address" :required="isNew" maxlength="300" autocomplete="street-address"></label>
           <div class="coordinates"><label>Leveysaste (latitude)<input v-model="latitude" type="number" step="any" min="-90" max="90" inputmode="decimal"></label><label>Pituusaste (longitude)<input v-model="longitude" type="number" step="any" min="-180" max="180" inputmode="decimal"></label></div>
           <p class="muted">Kartalla käytetään OpenFreeMapin julkista karttapalvelua. Uusi halli tarvitsee osoitteen ja karttapisteen. Vanhan hallin puuttuvan sijainnin voi säilyttää.</p>

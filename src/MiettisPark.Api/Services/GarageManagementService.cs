@@ -5,7 +5,7 @@ using Npgsql;
 
 namespace MiettisPark.Api.Services;
 
-public sealed class GarageManagementService(ParkingDbContext database, IParkingWriteTransactionFactory transactions)
+public sealed class GarageManagementService(ParkingDbContext database, IParkingWriteTransactionFactory transactions, IGarageEventPublisher? events = null)
 {
     public Task<GarageDto> CreateAsync(GarageRequest request, CancellationToken token) => WriteAsync(async transaction =>
     {
@@ -230,9 +230,20 @@ public sealed class GarageManagementService(ParkingDbContext database, IParkingW
     {
         try
         {
-            await using var transaction = await transactions.BeginAsync(token);
-            var result = await action(transaction);
-            await transaction.CommitAsync(token);
+            T result;
+            await using (var transaction = await transactions.BeginAsync(token))
+            {
+                result = await action(transaction);
+                await transaction.CommitAsync(token);
+            }
+
+            var change = result switch
+            {
+                GarageDto garage => new GarageChanged(garage.Id, "garage"),
+                LayoutDto layout => new GarageChanged(layout.GarageId, "layout"),
+                _ => throw new InvalidOperationException("Unsupported garage mutation.")
+            };
+            events?.Publish(change);
             return result;
         }
         catch (DbUpdateConcurrencyException)

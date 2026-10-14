@@ -14,10 +14,11 @@ import type {
 } from '../types/garage'
 
 export interface GarageApi {
-  getGarages(): Promise<GarageDto[]>
-  getAvailability(garageId: number): Promise<AvailabilityDto>
-  getActiveVisits(garageId: number): Promise<ActiveVisitDto[]>
-  getActiveParkings(garageId: number): Promise<ActiveParkingDto[]>
+  getLayout(id: number, signal?: AbortSignal): Promise<GarageLayoutDto>
+  getGarages(signal?: AbortSignal): Promise<GarageDto[]>
+  getAvailability(garageId: number, signal?: AbortSignal): Promise<AvailabilityDto>
+  getActiveVisits(garageId: number, signal?: AbortSignal): Promise<ActiveVisitDto[]>
+  getActiveParkings(garageId: number, signal?: AbortSignal): Promise<ActiveParkingDto[]>
   enterGarage(garageId: number, licenseNumber: string): Promise<EntryDto>
   exitGarage(garageId: number, licenseNumber: string): Promise<ReceiptDto>
   enterLot(garageId: number, lotId: number, visitId: number | null): Promise<LotEntryDto>
@@ -27,7 +28,7 @@ export interface GarageApi {
 export interface GarageManagementApi extends Pick<GarageApi, 'getGarages'> {
   createGarage(input: GarageInputDto): Promise<GarageDto>
   updateGarage(id: number, input: GarageInputDto): Promise<GarageDto>
-  getLayout(id: number): Promise<GarageLayoutDto>
+  getLayout(id: number, signal?: AbortSignal): Promise<GarageLayoutDto>
   saveLayout(id: number, input: GarageLayoutInputDto): Promise<GarageLayoutDto>
 }
 
@@ -58,8 +59,8 @@ export class HttpGarageApi implements GarageApi, GarageManagementApi {
     return await response.json() as T
   }
 
-  getGarages(): Promise<GarageDto[]> {
-    return this.request('/api/garages')
+  getGarages(signal?: AbortSignal): Promise<GarageDto[]> {
+    return this.request('/api/garages', { signal })
   }
 
   createGarage(input: GarageInputDto): Promise<GarageDto> {
@@ -70,24 +71,24 @@ export class HttpGarageApi implements GarageApi, GarageManagementApi {
     return this.request(`/api/garages/${id}`, { method: 'PUT', body: JSON.stringify(input) })
   }
 
-  getLayout(id: number): Promise<GarageLayoutDto> {
-    return this.request(`/api/garages/${id}/layout`)
+  getLayout(id: number, signal?: AbortSignal): Promise<GarageLayoutDto> {
+    return this.request(`/api/garages/${id}/layout`, { signal })
   }
 
   saveLayout(id: number, input: GarageLayoutInputDto): Promise<GarageLayoutDto> {
     return this.request(`/api/garages/${id}/layout`, { method: 'PUT', body: JSON.stringify(input) })
   }
 
-  getAvailability(garageId: number): Promise<AvailabilityDto> {
-    return this.request(`/api/garages/${garageId}/availability`)
+  getAvailability(garageId: number, signal?: AbortSignal): Promise<AvailabilityDto> {
+    return this.request(`/api/garages/${garageId}/availability`, { signal })
   }
 
-  getActiveVisits(garageId: number): Promise<ActiveVisitDto[]> {
-    return this.request(`/api/garages/${garageId}/visits/active`)
+  getActiveVisits(garageId: number, signal?: AbortSignal): Promise<ActiveVisitDto[]> {
+    return this.request(`/api/garages/${garageId}/visits/active`, { signal })
   }
 
-  getActiveParkings(garageId: number): Promise<ActiveParkingDto[]> {
-    return this.request(`/api/garages/${garageId}/parkings/active`)
+  getActiveParkings(garageId: number, signal?: AbortSignal): Promise<ActiveParkingDto[]> {
+    return this.request(`/api/garages/${garageId}/parkings/active`, { signal })
   }
 
   enterGarage(garageId: number, licenseNumber: string): Promise<EntryDto> {

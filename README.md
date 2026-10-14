@@ -1,6 +1,6 @@
 # Miettis Park
 
-.NET-, PostgreSQL- ja Vue/Nuxt-pohjainen pysäköintihallisimulaatio rekrytoinnin ennakkotehtävään. Koko MVP sisältää porttisimulaation `/` ja lukevan hallintanäkymän `/admin`.
+.NET-, PostgreSQL- ja Vue/Nuxt-pohjainen pysäköintihallisimulaatio rekrytoinnin ennakkotehtävään. Koko MVP sisältää porttisimulaation `/garages/{id}` ja lukevan hallintanäkymän `/admin`.
 
 - [SPEC.md](SPEC.md): alkuperäinen toiminnallinen ja tekninen sopimus.
 - [STARTING-POINT.md](STARTING-POINT.md) ja [BACKLOG.md](BACKLOG.md): lähtöpohjan ja työpakettien historiallinen suunnitelma.
@@ -8,13 +8,13 @@
 - [VALIDATION.md](VALIDATION.md): paikallinen näyttö, testimatriisi ja myöhemmin ajettava ihmisen ympäristötarkistus.
 - [Käyttöliittymäluonnokset](ui-mocks/index.html): erillinen prototyyppi esimerkkidatalla, ei sovelluksen tietolähde.
 
-MVP:n toteutusjärjestys oli PARK-01 → PARK-02 → PARK-04 → PARK-03, myös admin. V2:n järjestys on PARK-V2-01 → PARK-V2-02 → PARK-V2-03; tässä toteutettu osuus on PARK-V2-01. Se korvaa BACKLOGin vanhan adminin myöhempää milestonea koskevan rajauksen. Käyttäjän 14.10.2026 hyväksymä palveluriippumaton agenttihyväksyntä korvaa dokumenttien vanhat ulkoiset valmistumisportit; ei SPEC:n liiketoimintasääntöjä. Oikea selain, Docker ja PostgreSQL tarkistetaan myöhemmin ihmisen toimesta. Paikallinen hyväksyntä ei tarkoita ympäristöhyväksyntää tai tuotantovalmiutta.
+MVP:n toteutusjärjestys oli PARK-01 → PARK-02 → PARK-04 → PARK-03, myös admin. V2:n järjestys on PARK-V2-01 → PARK-V2-02 → PARK-V2-03; tässä toteutetut osuudet ovat PARK-V2-01 ja PARK-V2-02. Se korvaa BACKLOGin vanhan adminin myöhempää milestonea koskevan rajauksen. Käyttäjän 14.10.2026 hyväksymä palveluriippumaton agenttihyväksyntä korvaa dokumenttien vanhat ulkoiset valmistumisportit; ei SPEC:n liiketoimintasääntöjä. Oikea selain, Docker ja PostgreSQL tarkistetaan myöhemmin ihmisen toimesta. Paikallinen hyväksyntä ei tarkoita ympäristöhyväksyntää tai tuotantovalmiutta.
 
 ## Toteutus ja arkkitehtuuri
 
 `src\MiettisPark.Api`: .NET 10, ohut `GaragesController`, scoped `ParkingService`, EF Core/Npgsql ja PostgreSQL 17. Pohjassa `a82ca21` ovat malli, InitialCreate-migraatio ja seed: yksi halli, paikat 1–5 ja kaksi hintaporrasta. Hinnasto on tyypitetty jsonb-taulukko, kestot TimeSpan-arvoja, ajat UTC DateTimeOffset -arvoja ja raha decimal-euroja. Tuotannossa ei ole rinnakkaista muistivarastoa.
 
-`src\client`: staattinen Nuxt/Vue SPA. `/` simuloi porttia ja paikkahavaintoja sekä näyttää palvelimen kuitin. `/admin` näyttää saatavuuden, kaikki aktiiviset pysäköinnit ja erilliset hallikäynnit vain GET-kutsuilla. Suhteellinen `/api` kulkee kehityksessä Nuxt-proxyn kautta; tuotannossa .NET palvelee API:n ja staattisen frontendin samasta originista. Runtime ei tarvitse Node-palvelinta. `/api/health` on liveness, ei DB-readiness.
+`src\client`: staattinen Nuxt/Vue SPA. `/` näyttää hallikartan ja listan. `/garages/{id}` simuloi porttia ja paikkahavaintoja sekä näyttää palvelimen kuitin. `/admin` näyttää saatavuuden, kaikki aktiiviset pysäköinnit ja erilliset hallikäynnit vain GET-kutsuilla. Suhteellinen `/api` kulkee kehityksessä Nuxt-proxyn kautta; tuotannossa .NET palvelee API:n ja staattisen frontendin samasta originista. Runtime ei tarvitse Node-palvelinta. `/api/health` on liveness, ei DB-readiness.
 
 SDK/Node-versiot ovat `global.json`- ja `.node-version`-tiedostoissa; NuGet/npm-riippuvuudet lukittuina. Sovelluksen ajo tarvitsee .NET SDK:n, Node 24:n ja PostgreSQL 17:n tai Dockerin. Paikalliset buildit/testit tarvitsevat vain .NETin, Noden ja riippuvuuksien restoren, eivät palvelinprosessia, tietokantapalvelua, konttia, selainajuria tai salaisia asetuksia.
 
@@ -170,3 +170,25 @@ Muokkaus on paikallinen luonnos: ajorata, pysäköintipaikka, pyyhekumi, klikkau
 Style on `https://tiles.openfreemap.org/styles/liberty` ([OpenFreeMap quick start](https://openfreemap.org/quick_start/), tarkistettu 14.10.2026). `services/mapLibre.ts` tuo paikallisesti bundlatun workerin Viten `?worker&url`-tuonnilla ja asettaa `setWorkerUrl`-arvon quick startin mukaisesti. Nuxt lataa kirjaston CSS:n. Omaa provider-frameworkia tai API-avainta ei tarvita. Kartta tarvitsee verkosta stylen, tiilet, fontit ja spritet; niille ei luvata offline-toimintaa tai saatavuutta. Testit injektoivat loader-stubin eivätkä hae karttaa verkosta.
 
 MapLibren lähdeattribuutiota ei poisteta: **OpenFreeMap**, **© OpenMapTiles**, **Data from OpenStreetMap**, lähteiden linkit säilyttäen. Käyttöehdot ja attribuutiot: [OpenFreeMap](https://openfreemap.org/), [Terms of Service](https://openfreemap.org/tos/), [MapLibre Map API](https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/). Viralliset sivut luettiin HTTP:llä, koska Context7-työkalua ei ollut tarjolla. Palvelu on as-is/as-available, voi muuttua tai päättyä eikä anna saatavuus-/tarkkuustakuuta; integroijalla tulee olla ehtojen mukainen ikä ja organisaation valtuutus. Noudata lähteiden lisenssejä, laillista käyttöä ja palvelun kuormitusrajoja; offline-keräilyä ei ole toteutettu. Ulkoiset pyynnöt/CDN voivat kulkea Cloudflaren kautta. Asetuksissa ei ole salaisuuksia.
+
+## PARK-V2-02: hallikartta, simulaatio ja SSE
+
+Etusivu `/` näyttää hallit yhteisellä `GarageMap`-komponentilla ja riippumattomana responsiivisena listana. Suora `/garages/{id}` lukee tallennetun `LayoutDto`-pohjan ja live-paikkatilat; virheellinen ID ei valitse ensimmäistä hallia. Sisäänajo, valinnainen Visit-yhteys, paikan käyttö/vapautus/vaihto ja palvelimen kuitti säilyvät. Visit ja Parking ovat itsenäisiä. Kapasiteetti ja `3/5 varattu · 1 tuntematon` lasketaan aktiivisista paikoista, ei käynneistä. Myös `0/0 varattu` on sallittu. Pohja ja hallin paikallinen yhteenveto käyttävät samaa layout-vastausta.
+
+`GET /api/garages/events` on yhden tabin yhteinen EventSource: `text/event-stream`, tapahtuma `garage-changed`, JSON `{"garageId":1,"kind":"occupancy"}`. Muut lajit ovat `layout` ja `garage`. Ei rekisteriä, käyntitunnisteita tai henkilötietoja. Komennot käyttävät edelleen HTTP:tä. Julkaisu tapahtuu vasta commitin ja transaktion disposen jälkeen. Visit-muutos invalidioi käyntitiedot muuttamatta paikkalaskuria. Save/commit-virhe, rollback tai 409 ei julkaise.
+
+Kuuntelu alkaa ennen alkuhaun valmistumista. Invalidointi, ei laskuridelta: hallilista sekä avoimen hallin pohja/käynnit/pysäköinnit haetaan uudelleen. Generation ja pending-uusintakierros hylkäävät vanhat vastauserät ja yhdistävät purskeet. Reitinvaihto erottaa vanhan hallin valinnat ja kuitit. Poistuminen peruu snapshot-haut ja kuuntelun. Katko säilyttää viimeisen datan; jokainen open/reconnect hakee kokonaisen snapshotin, epäonnistuminen näkyy vanhentumisena ja Päivitä toimii ilman streamia. Erilliset REST-haut eivät muodosta yhtä PostgreSQL-transaktiosnapshotia.
+
+Taustapäivitys säilyttää rekisterikentän, olemassa olevan paikkavalinnan ja kuitin. Editorin live-päivitys koskee vain samojen ID:iden tilaa/poistokelpoisuusmetatietoa: luonnoksen ruudut, numerot ja expectedVersion eivät rebasetu. Muuttuneesta versiosta ilmoitetaan; luonnoksen hylkäävä reload vahvistetaan ja palvelimen 409 säilyy. Perustietolomaketta ei alusteta uudelleen listan SSE-päivityksestä.
+
+### Streamin käyttörajat ja proxy
+
+Julkaisija on yhden backend-prosessin muistissa, ei hajautettu fanout, outbox tai kestävä replay. Katkon/restartin jälkeen korjaus on uusi snapshot; Last-Event-ID-historiaa ei luvata. Tilaajakohtainen puskuri on 64 invalidointia. Julkaisu ei odota clienttiä: ylivuoto katkaisee tilauksen ja pakottaa reconnect/resyncin. Alkukommentti flushataan heti, heartbeat on 15 sekuntia ja yksittäisen kirjoituksen aikaraja 15 sekuntia. Peruutus poistaa tilauksen ja odotukset.
+
+Vastauksessa `Cache-Control: no-cache, no-transform` ja `X-Accel-Buffering: no`. Tuotantoproxyssa poista SSE-reitin puskurointi ja pakkaava muunnos (esimerkiksi nginx `proxy_buffering off;`), salli pitkä stream ja aseta idle/read-timeout selvästi yli 15 sekunnin heartbeat-välin. Proxy-/kahden oikean selaimen toiminta on vielä ihmistarkistus.
+
+Kartta käyttää **MapLibre GL JS 6.14.0** ja styleä `https://tiles.openfreemap.org/styles/liberty`. Kartta/editori jakavat loaderin ja komponentin. Markkerin ankkuri avaa hallin suoraan myös näppäimistöllä; occupancy-päivitys ei luo karttaa uudelleen tai resetoi zoomia. Puuttuva sijainti näkyy listalla, ei (0,0)-merkkinä; oikeat nollakoordinaatit ovat sallittuja. Karttavirhe/retry ei poista listaa tai estä simulaatiota. Tiilet, style, fontit ja WebGL tarvitsevat verkon/selaintuen; offline-karttaa tai saatavuuslupausta ei anneta. Nykyinen julkinen style ei tarvitse avainta. Attribuutiot: OpenFreeMap, OpenMapTiles ja OpenStreetMap. Lähteet/ehdot: [OpenFreeMap quick start](https://openfreemap.org/quick_start/), [ehdot](https://openfreemap.org/tos/), [MapLibre Map](https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/) ja [Marker](https://maplibre.org/maplibre-gl-js/docs/API/classes/Marker/). Uudet marker/fitBounds-signatuurit tarkistettiin asennetun lukitun paketin tyypeistä; Context7 ei ollut käytettävissä.
+
+### PARK-V2-03-luovutus
+
+Säilytä GarageDto/LayoutDto, IsActive-historiasuoja, halli-ennen-paikkaa-lukitus ja hinnasto; mallimuutosta ei tehty. SSE/resync/luonnossuojaus yllä. Komennot repojuuressa: `node scripts\openapi.mjs`, `dotnet build MiettisPark.slnx -c Release`, `dotnet test MiettisPark.slnx -c Release`, `npm run check`. Oikea PostgreSQL-migraatio/kilpailut, Docker/SPA-refresh/restart, WebGL/ulkoinen kartta sekä kahden selaimen/proxyn SSE tarkistetaan myöhemmin. Ei authia, uutta infraa, releasea, mergeä tai deployta.

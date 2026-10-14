@@ -1,6 +1,7 @@
-import { computed, inject, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, onBeforeUnmount, ref, watch, type Ref } from 'vue'
+import { createResync, garageEvents, useGarageEvents } from '../services/garageEvents'
 import { garageApiKey, HttpGarageApi, type GarageApi } from '../services/garageApi'
-import type { ActiveParkingDto, ActiveVisitDto, AvailabilityDto, EntryDto, GarageDto, ReceiptDto } from '../types/garage'
+import type { ActiveParkingDto, ActiveVisitDto, AvailabilityDto, EntryDto, GarageDto, GarageLayoutDto, ReceiptDto } from '../types/garage'
 
 export type NoticeKind = 'success' | 'error' | 'info' | 'warning'
 export interface DashboardNotice {
@@ -11,9 +12,9 @@ export interface DashboardNotice {
   requiresCustomerService?: boolean
 }
 
-export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new HttpGarageApi()) as GarageApi) {
+export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new HttpGarageApi()) as GarageApi, routeId?: Ref<number | null>) {
   const garages = ref<GarageDto[]>([])
-  const garageId = ref<number | null>(null)
+  const garageId = routeId ?? ref<number | null>(null)
   const availability = ref<AvailabilityDto | null>(null)
   const visits = ref<ActiveVisitDto[]>([])
   const parkings = ref<ActiveParkingDto[]>([])
@@ -37,44 +38,42 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     }
   }
 
-  async function refresh(): Promise<void> {
-    if (loading.value) {
-      return
-    }
+  const layout = ref<GarageLayoutDto | null>(null)
+  const fresh = ref(false)
+  let routeGeneration = 0
+  const sync = createResync(async signal => {
+    const id = garageId.value
     loading.value = true
-    error.value = ''
-    try {
-      if (garages.value.length === 0) {
-        garages.value = await api.getGarages()
-      }
-      if (garages.value.length === 0) {
-        garageId.value = null
-        availability.value = null
-        visits.value = []
-        parkings.value = []
-        initialized.value = true
-        return
-      }
-      garageId.value ??= garages.value[0]?.id ?? null
-      if (garageId.value === null) {
-        return
-      }
-      const [nextAvailability, nextVisits, nextParkings] = await Promise.all([
-        api.getAvailability(garageId.value),
-        api.getActiveVisits(garageId.value),
-        api.getActiveParkings(garageId.value)
-      ])
-      availability.value = nextAvailability
+    if (id === null || !Number.isSafeInteger(id) || id <= 0) throw new Error('Virheellinen hallitunniste.')
+    const [nextGarages, nextLayout, nextVisits, nextParkings] = await Promise.all([
+      api.getGarages(signal), api.getLayout(id, signal), api.getActiveVisits(id, signal), api.getActiveParkings(id, signal)
+    ])
+    if (!nextGarages.some(garage => garage.id === id)) throw new Error('Hallia ei löytynyt (404).')
+    return () => {
+      garages.value = nextGarages
+      layout.value = nextLayout
       visits.value = nextVisits
       parkings.value = nextParkings
+      const lots = nextLayout.lots
+      const free = lots.filter(lot => lot.currentStatus === 'Free').length
+      availability.value = { capacity: lots.length, activeVisits: nextVisits.length, freeLots: free,
+        occupiedLots: lots.filter(lot => lot.currentStatus === 'Occupied').length,
+        unknownLots: lots.filter(lot => lot.currentStatus === 'Unknown').length, isFull: free === 0, lots }
       initialized.value = true
-    } catch (cause) {
-      error.value = cause instanceof Error ? cause.message : 'Tietojen haku epäonnistui.'
-    } finally {
       loading.value = false
+      error.value = ''
+      fresh.value = true
     }
-  }
-
+  }, cause => { error.value = cause instanceof Error ? cause.message : 'Tietojen haku epäonnistui.'; loading.value = false; fresh.value = false })
+  function refresh(): Promise<void> { fresh.value = false; return sync.refresh() }
+  useGarageEvents(change => { if (!change || change.garageId === garageId.value || change.kind === 'garage') return refresh() })
+  watch(garageId, () => {
+    routeGeneration++
+    garages.value = []; availability.value = null; layout.value = null; visits.value = []; parkings.value = []
+    receipt.value = null; notice.value = null; initialized.value = false; error.value = ''
+    void refresh()
+  })
+  onBeforeUnmount(() => { routeGeneration++; sync.dispose() })
   async function afterMutation(message: string, code?: string, kind: NoticeKind = 'success'): Promise<void> {
     notice.value = { kind, message, code }
     await refresh()
@@ -95,11 +94,15 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     if (loading.value || submitting.value || garageId.value === null || !licenseNumber.trim()) {
       return
     }
+    const commandRoute = routeGeneration
+    const commandGarage = garageId.value
     submitting.value = true
     try {
-      const result = await api.enterGarage(garageId.value, licenseNumber.trim())
+      const result = await api.enterGarage(commandGarage, licenseNumber.trim())
+      if (commandRoute !== routeGeneration) return
       await afterMutation(entryMessage(result), result.outcome, result.outcome === 'RecoveredMissingExit' ? 'warning' : result.outcome === 'Duplicate' ? 'info' : 'success')
     } catch (cause) {
+      if (commandRoute !== routeGeneration) return
       notice.value = explainError(cause)
       if ((cause as { status?: number }).status === 409) {
         await refresh()
@@ -114,12 +117,17 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
       return
     }
     receipt.value = null
+    const commandRoute = routeGeneration
+    const commandGarage = garageId.value
     submitting.value = true
     try {
-      receipt.value = await api.exitGarage(garageId.value, licenseNumber.trim())
+      const nextReceipt = await api.exitGarage(commandGarage, licenseNumber.trim())
+      if (commandRoute !== routeGeneration) return
+      receipt.value = nextReceipt
       notice.value = { kind: 'success', message: 'Ulosajo kirjattu. Kuitti perustuu palvelimen tietoihin.' }
       await refresh()
     } catch (cause) {
+      if (commandRoute !== routeGeneration) return
       notice.value = explainError(cause)
       if ((cause as { status?: number }).status === 409) {
         await refresh()
@@ -133,11 +141,15 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     if (loading.value || submitting.value || garageId.value === null) {
       return
     }
+    const commandRoute = routeGeneration
+    const commandGarage = garageId.value
     submitting.value = true
     try {
-      await api.enterLot(garageId.value, lotId, visitId)
+      await api.enterLot(commandGarage, lotId, visitId)
+      if (commandRoute !== routeGeneration) return
       await afterMutation('Paikan käyttö kirjattu.', visitId === null ? 'Tuntematon auto tai käynti' : undefined)
     } catch (cause) {
+      if (commandRoute !== routeGeneration) return
       notice.value = explainError(cause)
       if ((cause as { status?: number }).status === 409) {
         await refresh()
@@ -151,13 +163,17 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     if (loading.value || submitting.value || garageId.value === null) {
       return
     }
+    const commandRoute = routeGeneration
+    const commandGarage = garageId.value
     submitting.value = true
     try {
-      const result = await api.exitLot(garageId.value, lotId)
+      const result = await api.exitLot(commandGarage, lotId)
+      if (commandRoute !== routeGeneration) return
       await afterMutation(result.missingParkingObservation
         ? 'Paikka vapautettiin; aktiivista pysäköintihavaintoa ei ollut.'
         : 'Paikan vapautuminen kirjattu.')
     } catch (cause) {
+      if (commandRoute !== routeGeneration) return
       notice.value = explainError(cause)
       if ((cause as { status?: number }).status === 409) {
         await refresh()
@@ -172,7 +188,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
   })
 
   return {
-    garages,
+    layout, fresh, connected: garageEvents.connected, garages,
     garageId,
     selectedGarage,
     availability,

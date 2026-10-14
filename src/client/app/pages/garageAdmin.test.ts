@@ -396,7 +396,7 @@ describe('editorin suojaavat reunapolut', () => {
     await wrapper.findAll('[role="gridcell"]')[3]!.trigger('click')
     vi.spyOn(window, 'confirm').mockReturnValue(false)
     await wrapper.findAll('button').find(button => button.text() === 'Lataa pohja uudelleen')!.trigger('click')
-    expect(api.getLayout).toHaveBeenCalledTimes(1)
+    expect(api.getLayout).toHaveBeenCalledTimes(2)
     await wrapper.get('.editor-actions .primary-button').trigger('click')
     await flushPromises()
     expect(wrapper.findAll('[role="gridcell"]')[3]!.text()).toContain('1')
