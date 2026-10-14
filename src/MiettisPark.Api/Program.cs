@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using MiettisPark.Api.Data;
 using MiettisPark.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +29,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 });
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ParkingExceptionHandler>();
+builder.Services.AddOptions<SimulationOptions>().BindConfiguration("Simulation");
 builder.Services.AddOptions<ParkingOptions>()
     .BindConfiguration("Parking")
     .Validate(options => options.DuplicateEntryWindow >= TimeSpan.Zero, "Parking:DuplicateEntryWindow must not be negative.")
@@ -54,6 +56,18 @@ builder.Services.AddDbContext<ParkingDbContext>(options =>
 });
 builder.Services.AddOpenApi("v1", options =>
 {
+    options.AddSchemaTransformer((schema, context, _) =>
+    {
+        if (context.JsonTypeInfo.Type == typeof(DateTimeOffset?))
+        {
+            // The field converter validates offsets; its JSON schema must remain a nullable timestamp.
+            schema.Type = JsonSchemaType.String | JsonSchemaType.Null;
+            schema.Format = "date-time";
+            schema.Description = "ISO 8601 timestamp with Z or an explicit UTC offset; omitted/null uses server time.";
+        }
+
+        return Task.CompletedTask;
+    });
     options.AddDocumentTransformer((document, _, _) =>
     {
         document.Info.Title = "Miettis Park API";

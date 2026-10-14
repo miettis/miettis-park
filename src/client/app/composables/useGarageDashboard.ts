@@ -10,6 +10,7 @@ export interface DashboardNotice {
   code?: string
   gateOpened?: boolean
   requiresCustomerService?: boolean
+  minimumOccurredAt?: string
 }
 
 export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new HttpGarageApi()) as GarageApi, routeId?: Ref<number | null>) {
@@ -27,7 +28,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
   const selectedGarage = computed(() => garages.value.find(garage => garage.id === garageId.value) ?? null)
 
   function explainError(value: unknown): DashboardNotice {
-    const apiError = value as Error & { status?: number, problem?: { code?: string, gateOpened?: boolean, requiresCustomerService?: boolean } }
+    const apiError = value as Error & { status?: number, problem?: { code?: string, gateOpened?: boolean, requiresCustomerService?: boolean, minimumOccurredAt?: string } }
     return {
       kind: 'error',
       message: apiError.message || 'Toiminto epäonnistui. Päivitä tilanne ja yritä uudelleen.',
@@ -35,6 +36,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
       gateOpened: apiError.problem?.gateOpened,
       requiresCustomerService: apiError.problem?.requiresCustomerService
         || apiError.problem?.code === 'ACTIVE_VISIT_NOT_FOUND',
+      minimumOccurredAt: apiError.problem?.minimumOccurredAt
     }
   }
 
@@ -79,18 +81,23 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     await refresh()
   }
 
+  function formatEffectiveTime(value: string): string {
+    return new Intl.DateTimeFormat('fi-FI', { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(value))
+  }
+
   function entryMessage(result: EntryDto): string {
+    const effectiveTime = ` Tapahtuma-aika: ${formatEffectiveTime(result.effectiveOccurredAt)}.`
     if (result.outcome === 'Duplicate') {
-      return `Aktiivinen käynti oli jo olemassa. Alkuperäinen alkamisaika: ${new Intl.DateTimeFormat('fi-FI', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(result.startAt))}. ${result.licenseNumber}`
+      return `Aktiivinen käynti oli jo olemassa. Alkuperäinen alkamisaika: ${new Intl.DateTimeFormat('fi-FI', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(result.startAt))}. ${result.licenseNumber}${effectiveTime}`
     }
     if (result.outcome === 'RecoveredMissingExit') {
       const startedAt = new Intl.DateTimeFormat('fi-FI', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(result.startAt))
-      return `Huomio: Aiempi käynti keskeytettiin. Uusi laskutus alkoi ${startedAt}. Paikka ei vapautunut. ${result.licenseNumber}`
+      return `Huomio: Aiempi käynti keskeytettiin. Uusi laskutus alkoi ${startedAt}. Paikka ei vapautunut. ${result.licenseNumber}${effectiveTime}`
     }
-    return `Sisäänajo kirjattu. ${result.licenseNumber}`
+    return `Sisäänajo kirjattu. ${result.licenseNumber}.${effectiveTime}`
   }
 
-  async function enterGarage(licenseNumber: string): Promise<void> {
+  async function enterGarage(licenseNumber: string, occurredAt: string | null): Promise<void> {
     if (loading.value || submitting.value || garageId.value === null || !licenseNumber.trim()) {
       return
     }
@@ -98,7 +105,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     const commandGarage = garageId.value
     submitting.value = true
     try {
-      const result = await api.enterGarage(commandGarage, licenseNumber.trim())
+      const result = await api.enterGarage(commandGarage, licenseNumber.trim(), occurredAt)
       if (commandRoute !== routeGeneration) return
       await afterMutation(entryMessage(result), result.outcome, result.outcome === 'RecoveredMissingExit' ? 'warning' : result.outcome === 'Duplicate' ? 'info' : 'success')
     } catch (cause) {
@@ -112,7 +119,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     }
   }
 
-  async function exitGarage(licenseNumber: string): Promise<void> {
+  async function exitGarage(licenseNumber: string, occurredAt: string | null): Promise<void> {
     if (loading.value || submitting.value || garageId.value === null || !licenseNumber.trim()) {
       return
     }
@@ -121,7 +128,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     const commandGarage = garageId.value
     submitting.value = true
     try {
-      const nextReceipt = await api.exitGarage(commandGarage, licenseNumber.trim())
+      const nextReceipt = await api.exitGarage(commandGarage, licenseNumber.trim(), occurredAt)
       if (commandRoute !== routeGeneration) return
       receipt.value = nextReceipt
       notice.value = { kind: 'success', message: 'Ulosajo kirjattu. Kuitti perustuu palvelimen tietoihin.' }
@@ -137,7 +144,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     }
   }
 
-  async function enterLot(lotId: number, visitId: number | null): Promise<void> {
+  async function enterLot(lotId: number, visitId: number | null, occurredAt: string | null): Promise<void> {
     if (loading.value || submitting.value || garageId.value === null) {
       return
     }
@@ -145,9 +152,10 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     const commandGarage = garageId.value
     submitting.value = true
     try {
-      await api.enterLot(commandGarage, lotId, visitId)
+      const result = await api.enterLot(commandGarage, lotId, visitId, occurredAt)
       if (commandRoute !== routeGeneration) return
-      await afterMutation('Paikan käyttö kirjattu.', visitId === null ? 'Tuntematon auto tai käynti' : undefined)
+      const effectiveTime = formatEffectiveTime(result.effectiveOccurredAt)
+      await afterMutation(`Paikan käyttö kirjattu. Tapahtuma-aika: ${effectiveTime}.`, visitId === null ? 'Tuntematon auto tai käynti' : undefined)
     } catch (cause) {
       if (commandRoute !== routeGeneration) return
       notice.value = explainError(cause)
@@ -159,7 +167,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     }
   }
 
-  async function exitLot(lotId: number): Promise<void> {
+  async function exitLot(lotId: number, occurredAt: string | null): Promise<void> {
     if (loading.value || submitting.value || garageId.value === null) {
       return
     }
@@ -167,11 +175,12 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     const commandGarage = garageId.value
     submitting.value = true
     try {
-      const result = await api.exitLot(commandGarage, lotId)
+      const result = await api.exitLot(commandGarage, lotId, occurredAt)
       if (commandRoute !== routeGeneration) return
-      await afterMutation(result.missingParkingObservation
+      const message = result.missingParkingObservation
         ? 'Paikka vapautettiin; aktiivista pysäköintihavaintoa ei ollut.'
-        : 'Paikan vapautuminen kirjattu.')
+        : 'Paikan vapautuminen kirjattu.'
+      await afterMutation(`${message} Tapahtuma-aika: ${formatEffectiveTime(result.effectiveOccurredAt)}.`)
     } catch (cause) {
       if (commandRoute !== routeGeneration) return
       notice.value = explainError(cause)

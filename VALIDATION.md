@@ -290,3 +290,30 @@ node scripts\openapi.mjs
 README sisältää nykyiset UI/API-reitit, GarageDto/LayoutDto/ProblemDetails-sopimuksen, expectedVersion/removedLotIds/IsActive-, halli-ennen-paikkaa- ja Visit/Parking-invariantit, MapLibre/OpenFreeMap-configin/workerin/ehdot sekä toistettavat komennot. Historiallisen MVP:n `/`-simulaatio, monihalli/admin-rajaukset ja SSE:n poissulku eivät kuvaa nykyistä v2:ta. AI-USAGE kirjaa tämän itemin todellisen Lead-työn ilman uutta delegointia tai keksittyä ihmisen hyväksyntää.
 
 Lead tarkistaa lopullisen diffin/palautteen ja kaikki pysyvän checklistin vaatimukset nykyrevision näytön perusteella; submission ja Git/milestone-integraatio kuuluvat PullPotentialille. Toteutunutta V2-03-mergeä ei väitetä etukäteen. Ihmisen lopullinen hyväksyntä, milestone-release, SemVer-tagi ja image-julkaisu ovat paikallisesta valmistumisesta erillisiä; ei manuaalista committia/pushia/tagia/image-pushia/deployta tai automaattista releasea.
+## PARK-V3-01 – tapahtumakohtainen aika (15.10.2026)
+
+Toteutettu nykyiseen integroituun v2:een. Uusi EventTimeTests käyttää tuotannon ParkingServiceä/TestServer-API:a, TestClockia ja nykyistä testiin rajattua InMemory/snapshot-rollback/koordinaatioharnessia. Se ei todista PostgreSQL:n lukitus-, transaktio- tai aikaleimojen mikrosekuntitarkkuutta.
+
+Paikallinen näyttö ennen revision jäädytystä:
+- Uuden EventTimeTests-matriisin ensimmäinen ajo: 19 passed / 0 failed / 0 skipped. Siinä havaittiin kolme xUnit1031-varoitusta jälkikäteen luetusta Task.Resultista; ne korjattiin awaitiksi, testejä ei skipattu.
+- Frontendin Lead-tarkistuksen ajo: 74 passed / 0 failed; Developerin aiempi 73 testin ajo sekä lint/typecheck/build exit 0. Lead korjasi pikasiirrot käyttämään valittua aikaa, lisäsi niiden testin, valitun ISO-ajan esityksen ja kuitin sekunnit. Lisäksi selaimen nollasekuntisen datetime-local-arvon minuuttiin lyhentyminen käsitellään eksplisiittisinä :00-sekunteina.
+- Lopullinen koko testistö ja build/lint/typecheck/DOM/build ajetaan nykyrevisionille platformin backend-build/backend-tests/frontend-checks-avaimilla. Platform-evidence on auktoritatiivinen; tämä teksti ei ole korvaava hyväksyntä.
+- Offline `node scripts\openapi.mjs` päivittää tracked-kuvauksen ennen freezeä. ModelTests tarkistaa Npgsql-mallin, aikamappauksen, aktiivisuusindeksit, historiaviitteet, mallin yhtäpitävyyden ja idempotentin migraatio-SQL:n ilman palvelua; tässä itemissä ei uutta migraatiota.
+
+| Vaatimus | Paikallinen todennus |
+| --- | --- |
+| Neljä aikaa, kerran ratkaistu oletus, UTC-offset, null/bodyton yhteensopivuus ja disabled | EventTimeTests MissingTime/Disabled/ApiValidates/ApiPreserves/ApiUsesOffset |
+| Kuitti 0/10 min/3 h/3 h+1 s/4 h | ServiceAndApiPersistExactReceipt, tuore DbContext ja API; PricingTests tick-rajat säilyvät |
+| Duplicate 2 min ja recovery +1 tick, alkuperäinen alku ja riippumaton Parking | DuplicateBoundaryRecoveryAndHistory, kertyneet RecoveryTests/RecoveryApiTests |
+| Takaperoinen Visit/Parking/linkitys sekä Completed/Interrupted-historia | ParkingHistoryLinkAndNoopBounds, ApiChecksCompletedAndInterruptedHistory, ConflictRollsBackWithoutSse |
+| Rollback, hinta/tilat/SSE muuttumatta | ConflictRollsBackWithoutSse, RecoverySecondSaveFailure, vanhat GarageEvents/Recovery-testit |
+| Erilliset menneet/tulevat ajat, kilpailu ja odotuksen aikainen snapshot | CoordinatedCommandsKeepIndependentTimes, ResolvedTimeSurvivesTransactionWait; vanhat invarianttikilpailut säilyvät |
+| UI/payload/sekunnit/offset/pikasiirrot/virheet/snapshot | EventTimeInput, garageApi, index DOM -testit; SSE/reconnect/409 säilyttää syötteet ja paikan |
+
+**AJAMATTA, myöhemmät ihmisen ympäristötarkistukset:** oikean PostgreSQL:n samanaikaiset sisäänajo-/paikkakomennot, osittaiset indeksit ja rollback; migraatio oikeaan tietokantaan sekä restart-pysyvyys; Docker/SPA-refresh; oikea selain/näppäimistö, paikallisen aikavyöhykkeen DST-siirtymät ja kartta/WebGL; kahden selaimen SSE/proxy. Ei oikeaa OpenRouter-kutsua, kuvaa tai avainta tässä itemissä, eikä niiden tarkkuudesta anneta lupausta. Testikelloa/tuplaa ei väitetä runtime-ympäristön hyväksynnäksi. Ei releasea, tagia, image-pushia tai deployta.
+
+V3-01:n viimeistely: API:n onnistumisvastauksille lisättiin eksplisiittiset 200 DTO-metadatat. Offset-kentän rajattu JSON-converter tuotti ensin tyhjän OpenAPI-skeeman; sisäänrakennettu schema-transformer palauttaa nullable date-time -sopimuksen. Uusien response-aikaleimojen tarpeeton `= default` aiheutti sitten .NETin schema-exporterille DateTimeOffset-unbox-virheen ja keskeytti offline-buildin; oletusarvo poistettiin (palvelu palauttaa aina todellisen ajan). Tätä epäonnistumista ei ohitettu: offline-generointi ajettiin uudelleen, exit 0, 0 compiler warning/error; uusi TestServer-OpenAPI-regressiotesti tarkistaa kolme optional/nullable offset-kenttää, neljä effectiveOccurredAt-vastausta ja optional exit-bodyn. Lopullinen kohdennettu EventTimeTests: 23 passed / 0 failed / 0 skipped. Viimeinen koko backend ennen tämän OpenAPI-testin lisäämistä: 184 passed; frontend viimeisessä workspace-ajossa: 74 passed. Lopulliset kokonaisajot alla olevan revision platform-evidenceissä. Ympäristön Microsoft.WebTools.ApiEndpointDiscovery-startup-injektioloki poistettiin eksplisiittisestä offline-ajosta ympäristöasetuksella; generointi ei käynnistänyt tietokantaa tai palvelinta.
+
+Lopullinen frontend workspace-matriisi: 75 passed / 0 failed, sisältäen erillisen SIMULATION_TIME_DISABLED-DOM-palautteen ja kaikkien neljän HTTP-clientin eksplisiittiset aikapayloadit. Revision jäädytyksen jälkeen ei tehdä lähdemuutoksia ennen kolmea platform-verification-ajoa.
+
+Ensimmäinen platform frontend-checks läpäisi lint/typecheck/75 testiä mutta build epäonnistui EventTimeInput.vue:n yksittäisiin ei-UTF-8-merkkeihin. Lähde normalisoitiin UTF-8:ksi säilyttäen jo oikein koodatut merkit; epäonnistunut evidence ei kelpaa hyväksyntään. Kaikki kolme vaadittua platform-ajoa uusitaan tälle korjatulle revisiolle.

@@ -843,6 +843,26 @@
                 }
               }
             }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryDto"
+                }
+              }
+            }
           }
         }
       }
@@ -954,6 +974,26 @@
                 }
               }
             }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotEntryDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotEntryDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotEntryDto"
+                }
+              }
+            }
           }
         }
       }
@@ -985,6 +1025,46 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LotExitRequest"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LotExitRequest"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LotExitRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -1042,6 +1122,26 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotExitDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotExitDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotExitDto"
                 }
               }
             }
@@ -1146,6 +1246,26 @@
                 }
               }
             }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDto"
+                }
+              }
+            }
           }
         }
       }
@@ -1153,6 +1273,51 @@
   },
   "components": {
     "schemas": {
+      "EntryDto": {
+        "required": [
+          "visitId",
+          "licenseNumber",
+          "startAt",
+          "outcome",
+          "effectiveOccurredAt"
+        ],
+        "type": "object",
+        "properties": {
+          "visitId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "licenseNumber": {
+            "type": "string"
+          },
+          "startAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/EntryOutcome"
+          },
+          "effectiveOccurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "gateOpened": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "EntryOutcome": {
+        "enum": [
+          "Entry",
+          "Duplicate",
+          "RecoveredMissingExit"
+        ]
+      },
       "GarageDto": {
         "required": [
           "id",
@@ -1418,6 +1583,59 @@
               "null",
               "string"
             ]
+          },
+          "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "ISO 8601 timestamp with Z or an explicit UTC offset; omitted/null uses server time.",
+            "format": "date-time"
+          }
+        }
+      },
+      "LotEntryDto": {
+        "required": [
+          "parkingId",
+          "lotId",
+          "visitId",
+          "startAt",
+          "effectiveOccurredAt"
+        ],
+        "type": "object",
+        "properties": {
+          "parkingId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "lotId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "visitId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "startAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "effectiveOccurredAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -1435,6 +1653,62 @@
               "string"
             ],
             "format": "int32"
+          },
+          "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "ISO 8601 timestamp with Z or an explicit UTC offset; omitted/null uses server time.",
+            "format": "date-time"
+          }
+        }
+      },
+      "LotExitDto": {
+        "required": [
+          "lotId",
+          "parkingId",
+          "missingParkingObservation",
+          "effectiveOccurredAt"
+        ],
+        "type": "object",
+        "properties": {
+          "lotId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "parkingId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "missingParkingObservation": {
+            "type": "boolean"
+          },
+          "effectiveOccurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LotExitRequest": {
+        "type": "object",
+        "properties": {
+          "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "ISO 8601 timestamp with Z or an explicit UTC offset; omitted/null uses server time.",
+            "format": "date-time"
           }
         }
       },
@@ -1473,6 +1747,68 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ReceiptDto": {
+        "required": [
+          "visitId",
+          "licenseNumber",
+          "startAt",
+          "endAt",
+          "closedAt",
+          "duration",
+          "cost",
+          "effectiveOccurredAt"
+        ],
+        "type": "object",
+        "properties": {
+          "visitId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "licenseNumber": {
+            "type": "string"
+          },
+          "startAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "duration": {
+            "pattern": "^-?(\\d+\\.)?\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,7})?$",
+            "type": "string"
+          },
+          "cost": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "effectiveOccurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "currency": {
+            "type": "string",
+            "default": "EUR"
+          },
+          "gateOpened": {
+            "type": "boolean",
+            "default": true
           }
         }
       }
