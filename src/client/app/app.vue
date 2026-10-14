@@ -1,3 +1,9 @@
+<script setup lang="ts">
+import { onMounted, onBeforeUnmount } from 'vue'
+import { garageEvents } from './services/garageEvents'
+onMounted(() => garageEvents.start())
+onBeforeUnmount(() => garageEvents.dispose())
+</script>
 <template>
   <NuxtPage />
 </template>

@@ -1,12 +1,12 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h, provide } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
-import IndexPage from './index.vue'
+import IndexPage from '../components/GarageSimulation.vue'
 import LotCard from '../components/LotCard.vue'
 import { garageApiKey, type GarageApi } from '../services/garageApi'
 import type { ActiveParkingDto, ActiveVisitDto, AvailabilityDto, EntryDto, GarageDto, LotDto, ReceiptDto } from '../types/garage'
 
-const garages: GarageDto[] = [{ id: 1, name: 'Keskustan pysäköinti' }]
+const garages: GarageDto[] = [{ id: 1, name: 'Keskustan pysäköinti', address: null, latitude: null, longitude: null, capacity: 0, freeLots: 0, occupiedLots: 0, unknownLots: 0, isFull: false }]
 const initialLots: LotDto[] = [
   { id: 11, number: 1, currentStatus: 'Free' },
   { id: 12, number: 2, currentStatus: 'Occupied' },
@@ -22,6 +22,7 @@ class StubGarageApi implements GarageApi {
   failNextLotEntry = false
   failNextGarageExit = false
   entryOutcome: EntryDto['outcome'] = 'Entry'
+  getLayout = vi.fn(async () => ({ garageId: 1, width: this.lots.length || 1, height: 1, version: 1, cells: this.lots.map((lot, x) => ({ x, y: 0, type: 'ParkingLot' as const, lotId: lot.id })), lots: this.lots.map(lot => ({ ...lot, canRemove: lot.currentStatus === 'Free' })) }))
   getGarages = vi.fn(async () => garages)
   getAvailability = vi.fn(async (): Promise<AvailabilityDto> => this.availability())
   getActiveVisits = vi.fn(async () => this.visits.map(visit => ({ ...visit })))
@@ -84,7 +85,7 @@ function render(api = new StubGarageApi()) {
   const TestHost = defineComponent({
     setup() {
       provide(garageApiKey, api)
-      return () => h(IndexPage)
+      return () => h(IndexPage, { garageId: 1 })
     }
   })
   return { wrapper: mount(TestHost), api }
@@ -95,14 +96,14 @@ async function settle(): Promise<void> {
 }
 
 function readRefreshCounts(api: StubGarageApi) {
-  return [api.getAvailability.mock.calls.length, api.getActiveVisits.mock.calls.length, api.getActiveParkings.mock.calls.length]
+  return [api.getLayout.mock.calls.length, api.getActiveVisits.mock.calls.length, api.getActiveParkings.mock.calls.length]
 }
 
 describe('garage dashboard with API stubs', () => {
   it('supports gate entry, linked parking, moving lots, and server receipt', async () => {
     const { wrapper, api } = render()
     await settle()
-    expect(api.getAvailability).toHaveBeenCalledWith(1)
+    expect(api.getLayout).toHaveBeenCalledWith(1, expect.any(AbortSignal))
 
     await wrapper.get('#license-number').setValue(' abc-123 ')
     const beforeEntry = readRefreshCounts(api)
@@ -289,7 +290,7 @@ describe('garage dashboard with API stubs', () => {
     const second = render(api)
     await settle()
     expect(api.getGarages).toHaveBeenCalledTimes(2)
-    expect(api.getAvailability).toHaveBeenCalledTimes(2)
+    expect(api.getLayout).toHaveBeenCalledTimes(2)
     expect(second.wrapper.get('.stat-primary strong').text()).toContain('2')
     await second.wrapper.get('nav button:nth-child(2)').trigger('click')
     expect(second.wrapper.get('.lot-grid').text()).toContain('Varattu')
@@ -339,7 +340,7 @@ it('shows an empty garage list and a recoverable load failure', async () => {
   expect(wrapper.get('[role="alert"]').text()).toContain('Yhteys katkesi.')
   await wrapper.get('.state-error button').trigger('click')
   await settle()
-  expect(wrapper.text()).toContain('Halleja ei löytynyt.')
+  expect(wrapper.text()).toContain('Hallia ei löytynyt (404).')
   expect(wrapper.find('.gate-form').exists()).toBe(false)
 })
 

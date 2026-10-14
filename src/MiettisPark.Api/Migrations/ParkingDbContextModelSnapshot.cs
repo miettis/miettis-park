@@ -84,6 +84,37 @@ namespace MiettisPark.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Address")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("address");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("latitude");
+
+                    b.Property<string>("LayoutCells")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("layout_cells");
+
+                    b.Property<int>("LayoutHeight")
+                        .HasColumnType("integer")
+                        .HasColumnName("layout_height");
+
+                    b.Property<int>("LayoutVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("layout_version");
+
+                    b.Property<int>("LayoutWidth")
+                        .HasColumnType("integer")
+                        .HasColumnName("layout_width");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("longitude");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -97,12 +128,21 @@ namespace MiettisPark.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("parking_garages", (string)null);
+                    b.ToTable("parking_garages", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_garages_layout", "layout_width BETWEEN 1 AND 50 AND layout_height BETWEEN 1 AND 50 AND layout_version > 0");
+
+                            t.HasCheckConstraint("ck_garages_location", "(latitude IS NULL AND longitude IS NULL) OR (latitude IS NOT NULL AND longitude IS NOT NULL AND latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)");
+                        });
 
                     b.HasData(
                         new
                         {
                             Id = 1,
+                            LayoutCells = "[{\"x\":0,\"y\":0,\"type\":2,\"lotId\":1},{\"x\":1,\"y\":0,\"type\":2,\"lotId\":2},{\"x\":2,\"y\":0,\"type\":2,\"lotId\":3},{\"x\":3,\"y\":0,\"type\":2,\"lotId\":4},{\"x\":4,\"y\":0,\"type\":2,\"lotId\":5}]",
+                            LayoutHeight = 1,
+                            LayoutVersion = 1,
+                            LayoutWidth = 5,
                             Name = "Keskustan pysäköinti",
                             ParkingFeeConfiguration = "[{\"amount\":0.50,\"perUnit\":\"00:10:00\",\"startDuration\":\"00:00:00\",\"endDuration\":\"03:00:00\"},{\"amount\":0.30,\"perUnit\":\"00:10:00\",\"startDuration\":\"03:00:00\",\"endDuration\":null}]"
                         });
@@ -123,6 +163,12 @@ namespace MiettisPark.Api.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("current_status");
 
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
                     b.Property<int>("Number")
                         .HasColumnType("integer")
                         .HasColumnName("number");
@@ -134,7 +180,8 @@ namespace MiettisPark.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ParkingGarageId", "Number")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("is_active = true");
 
                     b.ToTable("parking_lots", null, t =>
                         {
@@ -148,6 +195,7 @@ namespace MiettisPark.Api.Migrations
                         {
                             Id = 1,
                             CurrentStatus = "Free",
+                            IsActive = true,
                             Number = 1,
                             ParkingGarageId = 1
                         },
@@ -155,6 +203,7 @@ namespace MiettisPark.Api.Migrations
                         {
                             Id = 2,
                             CurrentStatus = "Free",
+                            IsActive = true,
                             Number = 2,
                             ParkingGarageId = 1
                         },
@@ -162,6 +211,7 @@ namespace MiettisPark.Api.Migrations
                         {
                             Id = 3,
                             CurrentStatus = "Free",
+                            IsActive = true,
                             Number = 3,
                             ParkingGarageId = 1
                         },
@@ -169,6 +219,7 @@ namespace MiettisPark.Api.Migrations
                         {
                             Id = 4,
                             CurrentStatus = "Free",
+                            IsActive = true,
                             Number = 4,
                             ParkingGarageId = 1
                         },
@@ -176,6 +227,7 @@ namespace MiettisPark.Api.Migrations
                         {
                             Id = 5,
                             CurrentStatus = "Free",
+                            IsActive = true,
                             Number = 5,
                             ParkingGarageId = 1
                         });
