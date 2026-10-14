@@ -131,7 +131,7 @@ public sealed class ServiceTests
         var error = await Assert.ThrowsAsync<ParkingError>(() => store.Service.EnterLotAsync(1, 1, null, Token));
         Assert.Equal("LOT_UNAVAILABLE", error.Code);
         Assert.Equal(409, error.StatusCode);
-        Assert.Equal(new[] { "begin", "garage:1", "lot:1", "dispose" }, store.Transactions.Events);
+        Assert.Equal(new[] { "begin", "garage:1", "lot:1", "rollback", "dispose" }, store.Transactions.Events);
         Assert.Empty(await store.Database.Parkings.ToListAsync());
     }
 

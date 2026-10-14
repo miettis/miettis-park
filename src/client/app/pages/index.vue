@@ -87,10 +87,10 @@ function money(value: number, currency: string): string {
           Halleja ei löytynyt.
         </div>
         <template v-else-if="availability">
-          <div v-if="notice" class="notice" :class="`notice-${notice.kind}`" :role="notice.kind === 'error' ? 'alert' : 'status'" aria-live="polite">
-            <span class="notice-icon" aria-hidden="true">{{ notice.kind === 'error' ? '!' : notice.kind === 'success' ? '✓' : 'i' }}</span>
+          <div v-if="notice" class="notice" :class="`notice-${notice.kind}`" :role="notice.kind === 'error' || notice.kind === 'warning' ? 'alert' : 'status'" aria-live="polite">
+            <span class="notice-icon" aria-hidden="true">{{ notice.kind === 'error' || notice.kind === 'warning' ? '!' : notice.kind === 'success' ? '✓' : 'i' }}</span>
             <div>
-              <strong>{{ notice.kind === 'error' ? 'Toimintoa ei voitu suorittaa' : 'Tilannepäivitys' }}</strong>
+              <strong>{{ notice.kind === 'error' ? 'Toimintoa ei voitu suorittaa' : notice.kind === 'warning' ? 'Käynnin palautus vaatii huomiota' : 'Tilannepäivitys' }}</strong>
               <p>{{ notice.message }}</p>
               <code v-if="notice.code">{{ notice.code }}</code>
               <p v-if="notice.gateOpened === false" class="service-note">Porttia ei avattu.</p>

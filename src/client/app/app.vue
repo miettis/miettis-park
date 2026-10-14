@@ -487,6 +487,15 @@ select:focus-visible {
   background: #fff3f1;
 }
 
+.notice-warning {
+  border-color: #e9d7ad;
+  background: #fff9e9;
+}
+
+.notice-warning .notice-icon {
+  background: var(--amber);
+}
+
 .notice-icon {
   display: grid;
   width: 23px;

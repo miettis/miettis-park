@@ -2,10 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using MiettisPark.Api.Contracts;
 using MiettisPark.Api.Data;
 using Npgsql;
+using Microsoft.Extensions.Options;
 
 namespace MiettisPark.Api.Services;
 
-public sealed class ParkingService(ParkingDbContext database, TimeProvider clock, ParkingFeeCalculator fees, IParkingWriteTransactionFactory transactions)
+public sealed class ParkingService(ParkingDbContext database, TimeProvider clock, ParkingFeeCalculator fees, IParkingWriteTransactionFactory transactions, IOptions<ParkingOptions> options)
 {
     public async Task<List<GarageDto>> GetGaragesAsync(CancellationToken cancellationToken)
     {
@@ -49,15 +50,27 @@ public sealed class ParkingService(ParkingDbContext database, TimeProvider clock
         {
             var active = await database.Visits.SingleOrDefaultAsync(x => x.ParkingGarageId == garageId
                 && x.LicenseNumber == normalized && x.Status == VisitStatus.Active, token);
-            if (active != null)
+            var now = clock.GetUtcNow();
+            if (active != null && now - active.StartAt <= options.Value.DuplicateEntryWindow)
             {
                 return new EntryDto(active.Id, active.LicenseNumber, active.StartAt, EntryOutcome.Duplicate);
             }
 
-            var visit = new Visit { ParkingGarageId = garageId, LicenseNumber = normalized, StartAt = clock.GetUtcNow() };
+            if (active != null)
+            {
+                active.Status = VisitStatus.Interrupted;
+                active.ClosureReason = "MissingExitBeforeNewEntry";
+                active.ClosedAt = now;
+                active.EndAt = null;
+                active.Cost = null;
+                // Release the partial Active index before inserting its replacement, in the same transaction.
+                await database.SaveChangesAsync(token);
+            }
+
+            var visit = new Visit { ParkingGarageId = garageId, LicenseNumber = normalized, StartAt = now };
             database.Visits.Add(visit);
             await database.SaveChangesAsync(token);
-            return new EntryDto(visit.Id, visit.LicenseNumber, visit.StartAt, EntryOutcome.Entry);
+            return new EntryDto(visit.Id, visit.LicenseNumber, visit.StartAt, active == null ? EntryOutcome.Entry : EntryOutcome.RecoveredMissingExit);
         }, cancellationToken);
     }
 

@@ -59,6 +59,9 @@ public sealed class ModelTests
         Assert.Contains("ON DELETE RESTRICT", sql);
         Assert.Contains("visit_id integer", sql);
         Assert.DoesNotContain("visit_id integer NOT NULL", sql);
+        Assert.Contains("status = 'Interrupted'", sql);
+        Assert.Contains("end_at IS NULL", sql);
+        Assert.Contains("cost IS NULL", sql);
         Assert.Contains("ck_visits_lifecycle", sql);
         Assert.Contains("ck_parkings_lifecycle", sql);
         Assert.Contains("timestamp with time zone", sql);
