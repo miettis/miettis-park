@@ -15,8 +15,7 @@ public sealed partial class OccurredAtJsonConverter : JsonConverter<DateTimeOffs
         }
 
         var value = reader.GetString();
-        if (value == null || !OffsetTimestamp().IsMatch(value)
-            || !DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
+        if (!TryParse(value, out var time))
         {
             throw new JsonException("Tapahtuma-ajan on oltava ISO 8601 -aika offsetilla.");
         }
@@ -27,6 +26,13 @@ public sealed partial class OccurredAtJsonConverter : JsonConverter<DateTimeOffs
     public override void Write(Utf8JsonWriter writer, DateTimeOffset value, JsonSerializerOptions options)
     {
         writer.WriteStringValue(value);
+    }
+
+    public static bool TryParse(string? value, out DateTimeOffset time)
+    {
+        time = default;
+        return value != null && OffsetTimestamp().IsMatch(value)
+            && DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out time);
     }
 
     [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?(?:Z|[+-]\d{2}:\d{2})$", RegexOptions.CultureInvariant)]

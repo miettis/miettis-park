@@ -94,3 +94,10 @@ Kuvan tunnistus/UI kuuluvat PARK-V3-02:een. Luovutus READMEn lopussa kertoo enne
 Leadin offline-tarkistus havaitsi ja korjasi JSON-converterin OpenAPI-metadatan sekä response-oletusarvon schema-exporter-virheen; korjaus ja uusi OpenAPI-regressiotesti on dokumentoitu VALIDATIONissa. Epäonnistunutta buildia ei merkitty läpäistyksi.
 
 Platform-frontbuild havaitsi ajansyöttökomponentin merkistövian, jota aiemmat lint/DOM-ajot eivät paljastaneet. Lead korjasi UTF-8-tallennuksen ja uusi kaikki revision evidence-ajot; ei riippuvuuspäivityksiä tai ohitettua buildia.
+
+
+## Kuvan ulkoinen tunnistus (PARK-V3-02)
+
+Käyttäjän erillinen Lue kilpi ja aja sisään -painike lähettää validoidun JPEG/PNG-kuvan backendistä OpenRouterin kautta valitulle kuvamallille. `PlateRecognition:ApiKey` on backendin salaisuus, `PlateRecognition:Model` eksplisiittinen malliasetus; kumpaakaan ei toimiteta clientiin. Ei runtime-fakea, automaattista mallivaihtoa tai maksullista retryä. Kuva on kehotteessa epäluotettavaa dataa, ei ohje. Rakenteinen tulos validoidaan suljetusti; vain yksi uniikki kelvollinen rekisteri pääsee olemassa olevaan atomiseen sisäänajopalveluun. Epäselvä tulos ei kirjaa käyntiä tai paikkaa.
+
+Sovellus ei tallenna kuvaa tai provider-vastausta eikä lokita avainta/kuvaa/vastausta. Käyttöliittymä kertoo ulkoisesta käsittelystä ennen lähettämistä, mutta ei lupaa ulkoisen palvelun nollasäilytystä. Paikalliset testit käyttävät HTTP-/tunnistusstubeja eivätkä OpenRouter-avainta tai maksullista palvelua. Ne todistavat sovelluksen sopimukset, eivät mallin tarkkuutta. Magick.NET korvasi haavoittuvuusneuvontoja sisältäneen ImageSharp-ehdokkaan; lisenssitarkistuksia ei ohitettu. Tarkat rajat, lähteet ja AJAMATTA-ympäristönäyttö on kirjattu VALIDATION.md:hen.

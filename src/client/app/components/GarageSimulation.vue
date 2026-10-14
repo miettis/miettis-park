@@ -4,6 +4,7 @@ import GarageLayoutView from './GarageLayoutView.vue'
 import { formatGarageOccupancy } from '../utils/occupancy'
 import AvailabilitySummary from '../components/AvailabilitySummary.vue'
 import GatePanel from '../components/GatePanel.vue'
+import ImageEntryPanel from '../components/ImageEntryPanel.vue'
 import LotCard from '../components/LotCard.vue'
 import EventTimeInput from '../components/EventTimeInput.vue'
 import { formatUtcDateTime, toEventTime } from '../utils/eventTime'
@@ -15,13 +16,19 @@ const selectionNotice = ref('')
 const eventTime = ref('')
 const eventTimeResult = computed(() => toEventTime(eventTime.value))
 const eventTimeValid = computed(() => eventTimeResult.value.error === null)
-const { layout, fresh, connected, selectedGarage, availability, visits, receipt, notice, loading, submitting, initialized, error, refresh, enterGarage, exitGarage, enterLot, exitLot } = useGarageDashboard(undefined, toRef(props, 'garageId'))
+const { layout, fresh, connected, selectedGarage, availability, visits, receipt, notice, loading, submitting, initialized, error, refresh, enterGarage, enterGarageFromImage, exitGarage, enterLot, exitLot } = useGarageDashboard(undefined, toRef(props, 'garageId'))
 const occupancy = computed(() => availability.value ? formatGarageOccupancy(availability.value) : '')
 
 function submitEntry(licenseNumber: string): void {
   if (!eventTimeValid.value) return
   const occurredAt = eventTimeResult.value.occurredAt
   void enterGarage(licenseNumber, occurredAt)
+}
+
+function submitImage(file: File): void {
+  if (!eventTimeValid.value) return
+  const occurredAt = eventTimeResult.value.occurredAt
+  void enterGarageFromImage(file, occurredAt)
 }
 
 function submitExit(licenseNumber: string): void {
@@ -165,6 +172,7 @@ function money(value: number, currency: string): string {
                 @enter="submitEntry"
                 @exit="submitExit"
               />
+              <ImageEntryPanel :key="props.garageId ?? 'invalid'" :occurred-at="eventTimeResult.occurredAt" :submitting="submitting || loading" :event-time-valid="eventTimeValid" @submit="submitImage" />
               <section class="panel visit-panel" aria-labelledby="visits-heading">
                 <div class="panel-heading">
                   <div><p class="eyebrow">AKTIIVISET</p><h2 id="visits-heading">Hallikäynnit</h2></div>

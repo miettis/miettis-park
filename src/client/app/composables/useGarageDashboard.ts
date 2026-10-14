@@ -119,6 +119,25 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     }
   }
 
+  async function enterGarageFromImage(image: File, occurredAt: string | null): Promise<void> {
+    if (loading.value || submitting.value || garageId.value === null || !image) return
+    const commandRoute = routeGeneration
+    const commandGarage = garageId.value
+    submitting.value = true
+    try {
+      const result = await api.enterGarageFromImage(commandGarage, image, occurredAt)
+      if (commandRoute !== routeGeneration) return
+      await afterMutation(`${entryMessage(result)} Tunnistettu rekisteri: ${result.recognizedLicenseNumber}. VisitId: ${result.visitId}.`, result.outcome,
+        result.outcome === 'RecoveredMissingExit' ? 'warning' : result.outcome === 'Duplicate' ? 'info' : 'success')
+    } catch (cause) {
+      if (commandRoute !== routeGeneration) return
+      notice.value = explainError(cause)
+      if ((cause as { status?: number }).status === 409) await refresh()
+    } finally {
+      submitting.value = false
+    }
+  }
+
   async function exitGarage(licenseNumber: string, occurredAt: string | null): Promise<void> {
     if (loading.value || submitting.value || garageId.value === null || !licenseNumber.trim()) {
       return
@@ -211,6 +230,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     error,
     refresh,
     enterGarage,
+    enterGarageFromImage,
     exitGarage,
     enterLot,
     exitLot

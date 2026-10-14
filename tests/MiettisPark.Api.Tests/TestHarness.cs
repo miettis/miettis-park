@@ -212,6 +212,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     private readonly string name = Guid.NewGuid().ToString();
     public TestClock Clock { get; } = new();
+    public MiettisPark.Api.Services.PlateRecognition.ILicensePlateReader? PlateReader { get; set; }
     public bool SimulationEnabled { get; set; } = true;
     public string? DuplicateWindow { get; set; }
     public SaveProbe Probe { get; } = new();
@@ -228,6 +229,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         }));
         builder.ConfigureServices(services =>
         {
+            if (PlateReader != null)
+            {
+                services.RemoveAll<MiettisPark.Api.Services.PlateRecognition.ILicensePlateReader>();
+                services.AddSingleton(PlateReader);
+            }
+
             services.RemoveAll<ParkingDbContext>();
             services.RemoveAll<DbContextOptions<ParkingDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<ParkingDbContext>>();
