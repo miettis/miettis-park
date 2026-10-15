@@ -549,3 +549,32 @@ it('opens only the clicked parking lot in a modal and removes its controls when 
   expect(wrapper.find('.lot-card').exists()).toBe(false)
   wrapper.unmount()
 })
+
+
+it('closes the lot modal on Escape and tab changes and preserves the simulation time', async () => {
+  const { wrapper } = render()
+  await settle()
+  await openLot(wrapper)
+  await wrapper.get('#event-time').setValue('2026-10-14T13:30:00')
+  await wrapper.get('.lot-modal').trigger('cancel')
+  await wrapper.get('.lot-modal').trigger('close')
+  expect(wrapper.find('.lot-card').exists()).toBe(false)
+  await openLot(wrapper)
+  await wrapper.get('#tab-overview').trigger('click')
+  expect(wrapper.get('.lot-modal').attributes('open')).toBeUndefined()
+  expect(wrapper.find('.lot-card').exists()).toBe(false)
+  await wrapper.get('#tab-simulation').trigger('click')
+  expect((wrapper.get('#event-time').element as HTMLInputElement).value).toContain('2026-10-14T13:30')
+  wrapper.unmount()
+})
+
+it('supports keyboard tab navigation without mounting unrelated settings', async () => {
+  const { wrapper } = render()
+  await settle()
+  await wrapper.get('#tab-overview').trigger('keydown', { key: 'ArrowRight' })
+  expect(wrapper.get('#tab-simulation').attributes('aria-selected')).toBe('true')
+  await wrapper.get('#tab-simulation').trigger('keydown', { key: 'Home' })
+  expect(wrapper.get('#tab-overview').attributes('aria-selected')).toBe('true')
+  expect(wrapper.find('.embedded-settings').exists()).toBe(false)
+  wrapper.unmount()
+})

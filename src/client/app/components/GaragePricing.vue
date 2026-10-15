@@ -11,6 +11,7 @@ const loaded = ref(false)
 const error = ref('')
 const saved = ref(false)
 async function load() {
+  if (busy.value) return
   busy.value = true; error.value = ''; saved.value = false
   try {
     const result = await api.getPricing(props.garageId)
@@ -23,14 +24,22 @@ async function load() {
 function add() {
   const last = tiers.value.at(-1)
   if (!last) return
-  last.endDuration = '03:00:00'
+  const match = /^(?:(\d+)\.)?(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)$/.exec(last.startDuration)
+  if (!match) { error.value = 'Tarkista viimeisen portaan alkuaika.'; return }
+  const hours = Number(match[1] ?? 0) * 24 + Number(match[2]) + 3
+  const days = Math.floor(hours / 24)
+  last.endDuration = `${days ? `${days}.` : ''}${String(hours % 24).padStart(2, '0')}:${match[3]}:${match[4]}`
   tiers.value.push({ amount: 0.3, perUnit: '00:10:00', startDuration: last.endDuration, endDuration: null })
 }
 function remove(index: number) {
+  const removed = tiers.value[index]
+  if (!removed || tiers.value.length === 1) return
   tiers.value.splice(index, 1)
+  if (tiers.value[index]) tiers.value[index]!.startDuration = removed.startDuration
   if (tiers.value.length) tiers.value[tiers.value.length - 1]!.endDuration = null
 }
 async function save() {
+  if (busy.value) return
   busy.value = true; error.value = ''; saved.value = false
   try {
     const result = await api.savePricing(props.garageId, JSON.parse(JSON.stringify(tiers.value)), JSON.parse(JSON.stringify(expected.value)))
