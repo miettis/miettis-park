@@ -184,9 +184,9 @@ describe('read-only admin dashboard', () => {
   it('provides semantic route links, captions, column headings, and focusable scroll regions', async () => {
     const wrapper = render()
     await flushPromises()
-    expect(wrapper.get('nav a[href="/"]').text()).toContain('Porttisimulaatio')
-    expect(wrapper.get('nav a[href="/admin"]').attributes('aria-current')).toBe('page')
-    expect(wrapper.find('a[href="#main-content"]').exists()).toBe(true)
+    expect(wrapper.get('nav a[href="/"]').text()).toContain('Kartta')
+    expect(wrapper.get('nav a[href="/admin/garages"]').text()).toBe('Hallit')
+    expect(wrapper.find('a.brand[href="/"]').exists()).toBe(true)
     for (const region of wrapper.findAll('.admin-table-scroll')) {
       expect(region.attributes('tabindex')).toBe('0')
       expect(region.attributes('aria-label')).toContain('vieritettävä')
@@ -195,7 +195,7 @@ describe('read-only admin dashboard', () => {
     }
     const index = mount(IndexPage, { global: { provide: { [garageApiKey]: stub() } } })
     await flushPromises()
-    expect(index.get('nav a[href="/admin"]').text()).toContain('Hallinta')
+    expect(index.get('nav a[href="/admin/garages"]').text()).toBe('Hallit')
   })
 
   it('uses only the four existing relative GET paths with the real HTTP adapter', async () => {

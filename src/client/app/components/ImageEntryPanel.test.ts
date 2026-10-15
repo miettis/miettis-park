@@ -47,6 +47,20 @@ describe('ImageEntryPanel', () => {
     wrapper.unmount()
   })
 
+  it('only resets a selected image after an explicit successful-operation reset', async () => {
+    const wrapper = panel()
+    await wrapper.get('.drop-area').trigger('drop', { dataTransfer: { files: [validImage()] } })
+    await wrapper.get('button').trigger('click')
+    await wrapper.setProps({ submitting: true })
+    await wrapper.setProps({ submitting: false })
+    expect(wrapper.find('img').exists()).toBe(true)
+    await wrapper.setProps({ resetKey: 1 })
+    expect(wrapper.find('img').exists()).toBe(false)
+    expect(wrapper.get('button').attributes('disabled')).toBeDefined()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:image')
+    wrapper.unmount()
+  })
+
   it.each([
     [new File(['x'], 'bad.gif', { type: 'image/gif' })],
     [new File([], 'empty.png', { type: 'image/png' })],

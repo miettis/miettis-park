@@ -9,4 +9,4 @@ const id = computed(() => {
   return Number.isSafeInteger(value) ? value : null
 })
 </script>
-<template><GarageSimulation :garage-id="id" /></template>
+<template><GarageSimulation :key="id ?? 'invalid'" :garage-id="id" /></template>

@@ -1,4 +1,7 @@
 import type {
+  VisitHistoryDto,
+  FeeTierDto,
+  PricingDto,
   ActiveParkingDto,
   ActiveVisitDto,
   AvailabilityDto,
@@ -59,6 +62,18 @@ export class HttpGarageApi implements GarageApi, GarageManagementApi {
     }
 
     return await response.json() as T
+  }
+
+  getVisitHistory(id: number, skip = 0, signal?: AbortSignal): Promise<VisitHistoryDto[]> {
+    return this.request(`/api/garages/${id}/visits?skip=${skip}&take=50`, { signal })
+  }
+
+  getPricing(id: number): Promise<PricingDto> {
+    return this.request(`/api/garages/${id}/pricing`)
+  }
+
+  savePricing(id: number, tiers: FeeTierDto[], expectedTiers: FeeTierDto[]): Promise<PricingDto> {
+    return this.request(`/api/garages/${id}/pricing`, { method: 'PUT', body: JSON.stringify({ tiers, expectedTiers }) })
   }
 
   getGarages(signal?: AbortSignal): Promise<GarageDto[]> {

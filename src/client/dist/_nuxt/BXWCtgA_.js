@@ -1,0 +1,1 @@
+import{M as e,l as t,v as n}from"./C5qHHa--.js";import{t as r}from"./ConAyAa8.js";var i=n({__name:`index`,setup(n){return(n,i)=>(e(),t(r))}});export{i as default};

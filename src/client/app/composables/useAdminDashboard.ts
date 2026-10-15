@@ -6,6 +6,7 @@ type AdminApi = Pick<GarageApi, 'getGarages' | 'getAvailability' | 'getActiveVis
 
 export function useAdminDashboard() {
   const api = inject<AdminApi>(garageApiKey, new HttpGarageApi())
+  const garages = ref<GarageDto[]>([])
   const selectedGarage = ref<GarageDto | null>(null)
   const availability = ref<AvailabilityDto | null>(null)
   const parkings = ref<ActiveParkingDto[]>([])
@@ -22,7 +23,8 @@ export function useAdminDashboard() {
     loading.value = true
     error.value = ''
     try {
-      const garage = selectedGarage.value ?? (await api.getGarages())[0] ?? null
+      if (!selectedGarage.value) garages.value = await api.getGarages()
+      const garage = selectedGarage.value ?? garages.value[0] ?? null
       if (!garage) {
         selectedGarage.value = null
         availability.value = null
@@ -58,7 +60,7 @@ export function useAdminDashboard() {
   }
 
   onMounted(refresh)
-  return { selectedGarage, availability, parkings, visits, updatedAt, loading, initialized, error, refresh }
+  return { garages, selectedGarage, availability, parkings, visits, updatedAt, loading, initialized, error, refresh }
 }
 
 export function timeLabel(value: string): string {

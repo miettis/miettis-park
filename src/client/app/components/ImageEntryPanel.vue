@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 
-const props = defineProps<{ submitting: boolean, eventTimeValid: boolean, occurredAt?: string | null }>()
+const props = defineProps<{ resetKey?: number, submitting: boolean, eventTimeValid: boolean, occurredAt?: string | null }>()
 const emit = defineEmits<{ submit: [image: File] }>()
 const selected = ref<File | null>(null)
 const previewUrl = ref('')
@@ -38,6 +38,7 @@ function onDrop(event: DragEvent): void {
 function submit(): void {
   if (selected.value && props.eventTimeValid && !props.submitting) emit('submit', selected.value)
 }
+watch(() => props.resetKey, () => { selected.value = null; error.value = ''; clearPreview(); if (input.value) input.value.value = '' })
 onBeforeUnmount(clearPreview)
 </script>
 

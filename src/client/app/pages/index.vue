@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppSidebar from '../components/AppSidebar.vue'
 import GarageMap from '../components/GarageMap.vue'
 import { useGarageList } from '../composables/useGarageList'
 import { formatGarageOccupancy } from '../utils/occupancy'
@@ -6,7 +7,7 @@ const { garages, loading, initialized, error, fresh, connected, refresh } = useG
 </script>
 <template>
   <div class="app-shell">
-    <aside class="sidebar"><a class="brand" href="/"><span class="logo">P</span>Miettis Park</a><nav aria-label="Päänavigaatio"><a href="/" aria-current="page">Hallikartta</a><a href="/admin">Hallinta</a><a href="/admin/garages">Hallien ylläpito</a></nav></aside>
+    <AppSidebar :fresh="fresh" :garages="garages" />
     <main id="main-content" class="main-content"><header class="topbar"><h1>Hallit kartalla</h1><button class="refresh-button" :disabled="loading" @click="refresh">{{ loading ? 'Päivitetään…' : 'Päivitä tilanne' }}</button></header>
       <div class="page-content"><p role="status">{{ !connected ? 'Yhteys katkennut, yhdistetään…' : !fresh ? 'Tilanne voi olla vanhentunut' : 'Reaaliaikainen' }}</p><p v-if="error" role="alert">Tilanne voi olla vanhentunut. {{ error }}</p><p v-if="loading && !initialized" role="status">Haetaan halleja…</p>
         <GarageMap :garages="garages" />
