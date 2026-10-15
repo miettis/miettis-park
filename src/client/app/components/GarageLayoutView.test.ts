@@ -38,7 +38,7 @@ describe('GarageLayoutView', () => {
     expect(cells[2]?.text()).toContain('3')
     expect(cells[2]?.text()).toContain('Ei tiedossa')
     expect(cells[2]?.classes()).toContain('status-Unknown')
-    expect(cells[3]?.text()).toBe('Tyhjä')
+    expect(cells[3]?.text()).toBe('')
     expect(cells[3]?.classes()).toContain('empty-cell')
     expect(cells[4]?.classes()).toContain('status-Occupied')
     expect(cells[4]?.attributes('aria-pressed')).toBe('true')

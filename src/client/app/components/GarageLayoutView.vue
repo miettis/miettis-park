@@ -88,9 +88,7 @@ function selectLot(cell: LayoutCellDto): void {
         :style="{ gridColumn: cell.x + 1, gridRow: cell.y + 1 }"
         role="gridcell"
         :aria-label="cellLabel(cell)"
-      >
-        {{ cell.type === 'Road' ? '' : 'Tyhjä' }}
-      </div>
+      />
     </template>
   </div>
 </template>
