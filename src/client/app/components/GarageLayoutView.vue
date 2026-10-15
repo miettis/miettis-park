@@ -89,7 +89,7 @@ function selectLot(cell: LayoutCellDto): void {
         role="gridcell"
         :aria-label="cellLabel(cell)"
       >
-        {{ cell.type === 'Road' ? 'Ajoväylä' : 'Tyhjä' }}
+        {{ cell.type === 'Road' ? '' : 'Tyhjä' }}
       </div>
     </template>
   </div>

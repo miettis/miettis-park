@@ -1,3 +1,4 @@
+import type { VueWrapper } from '@vue/test-utils'
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -34,6 +35,14 @@ function stub() {
 }
 beforeEach(() => { Source.instances = []; vi.stubGlobal('EventSource', Source) })
 afterEach(() => { garageEvents.dispose(); vi.unstubAllGlobals() })
+
+
+async function openLot(wrapper: VueWrapper, position = 1): Promise<void> {
+  if (wrapper.find('.lot-modal[open]').exists()) await wrapper.get('[aria-label="Sulje paikan toiminnot"]').trigger('click')
+  await wrapper.get('#tab-simulation').trigger('click')
+  await wrapper.findAll('#panel-simulation .parking-lot')[position - 1]!.trigger('click')
+  await flushPromises()
+}
 
 describe('shared SSE invalidation and race-safe reads', () => {
   it('opens one source, validates anonymous events, reconnects, unsubscribes and disposes', async () => {
@@ -107,6 +116,7 @@ describe('shared SSE invalidation and race-safe reads', () => {
       await wrapper.get('.gate-form').trigger('submit'); await flushPromises()
       expect(api.enterGarage).toHaveBeenLastCalledWith(id, 'CAR', null)
       await wrapper.get('#tab-simulation').trigger('click')
+      await openLot(wrapper)
       await wrapper.get('.lot-card button').trigger('click')
       await wrapper.get('.lot-entry-form').trigger('submit'); await flushPromises()
       expect(api.enterLot).toHaveBeenLastCalledWith(id, id * 10, null, null)
@@ -134,7 +144,7 @@ describe('shared SSE invalidation and race-safe reads', () => {
     expect((wrapper.get('#license-number').element as HTMLInputElement).value).toBe('DRAFT-123')
     expect((wrapper.get('#event-time').element as HTMLInputElement).value).toBe('2026-10-14T13:30:45.000')
     await wrapper.get('#tab-simulation').trigger('click')
-    await wrapper.get('.layout-cell').trigger('click')
+    await openLot(wrapper)
     source.emit(); await flushPromises()
     expect(wrapper.text()).toContain('valittu')
     source.onerror?.(); await flushPromises()
@@ -145,7 +155,8 @@ describe('shared SSE invalidation and race-safe reads', () => {
     expect(wrapper.text()).toContain('Tilanne voi olla vanhentunut')
     expect(wrapper.findAll('.lot-card')).toHaveLength(1)
     await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
-    expect(wrapper.text()).toContain('Reaaliaikainen')
+    expect(wrapper.text()).not.toContain('Yhteys katkennut')
+    expect(wrapper.text()).not.toContain('Tilanne voi olla vanhentunut')
     expect((wrapper.get('#event-time').element as HTMLInputElement).value).toBe('2026-10-14T13:30:45.000')
     wrapper.unmount()
   })
@@ -195,17 +206,17 @@ describe('shared SSE invalidation and race-safe reads', () => {
     wrapper.unmount()
   })
 
-  it('list stays usable without coordinates or map service and displays 0/0 and Unknown separately', async () => {
+  it('sidebar links remain usable when the map service is unavailable', async () => {
     const api = stub()
     const data = await api.getGarages()
     api.getGarages.mockResolvedValue([{ ...data[0]!, capacity: 5, occupiedLots: 3, unknownLots: 1 }, { ...data[1]!, capacity: 0, freeLots: 0 }])
     const wrapper = mount(IndexPage, { global: { provide: { [garageApiKey]: api }, stubs: { GarageMap: { template: '<p>Kartan virhe</p>' } } } })
     await flushPromises()
-    expect(wrapper.text()).toContain('3/5 varattu')
-    expect(wrapper.text()).toContain('1 tuntematon')
-    expect(wrapper.text()).toContain('0/0 varattu')
+    expect(wrapper.text()).toContain('Kartan virhe')
+    expect(wrapper.find('.garage-list').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Kaikki hallit')
     expect(wrapper.get('a[href="/garages/2"]').text()).toBe('Halli 2')
-    expect(wrapper.text()).toContain('Sijainti puuttuu')
+    expect(wrapper.get('a[href="/garages/1"]').text()).toBe('Halli 1')
     wrapper.unmount()
   })
 

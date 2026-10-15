@@ -45,7 +45,7 @@ describe('read-only admin dashboard', () => {
     const wrapper = render()
     await flushPromises()
     expect(wrapper.text()).toContain('Testihalli')
-    expect(wrapper.findAll('.stat-card strong').map(item => item.text())).toEqual(['0 / 9', '7', '2', '12'])
+    expect(wrapper.findAll('.stat-card strong').map(item => item.text())).toEqual(['0', '7', '2', '12'])
     expect(wrapper.text()).toContain('Halli on täynnä')
     const parkings = wrapper.findAll('table')[0]!
     const visits = wrapper.findAll('table')[1]!
@@ -142,7 +142,7 @@ describe('read-only admin dashboard', () => {
     }
     visits.resolve([])
     await flushPromises()
-    expect(wrapper.get('.stat-primary strong').text()).toBe('9 / 9')
+    expect(wrapper.get('.stat-primary strong').text()).toBe('9')
     expect(wrapper.get('[role="status"] time').attributes('datetime')).toBe('2026-10-14T13:00:00.000Z')
   })
 

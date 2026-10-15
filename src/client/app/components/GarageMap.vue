@@ -68,8 +68,12 @@ function updateLegacyMarker(): void {
     return
   }
 
-  marker ??= new library.Marker().addTo(map)
-  marker.setLngLat([props.longitude!, props.latitude!])
+  const coordinates: [number, number] = [props.longitude!, props.latitude!]
+  if (!marker) {
+    marker = new library.Marker().setLngLat(coordinates).addTo(map)
+    return
+  }
+  marker.setLngLat(coordinates)
 }
 
 function updateGarageMarkerContent(element: HTMLAnchorElement, garage: GarageDto): void {
@@ -279,6 +283,7 @@ button { min-height: 36px; margin: 6px; padding: 6px 9px; border: 1px solid #dfe
 .map-attribution { margin: 0; padding: 4px; background: #ffffffd9; color: #33443a; font: 11px/1.5 Arial, sans-serif; }
 .map-attribution a { color: inherit; }
 :global(.garage-map-marker) { display: grid; gap: 2px; min-width: 140px; max-width: 210px; padding: 7px 9px; border: 1px solid #176d50; border-radius: 8px; background: white; color: #24372d; box-shadow: 0 2px 8px #0003; font: 12px/1.35 Arial, sans-serif; text-decoration: none; }
+:global(.garage-map-marker:hover), :global(.garage-map-marker:focus-within) { z-index: 1; }
 :global(.garage-map-marker strong) { color: #176d50; }
 :global(.garage-map-marker:focus-visible) { outline: 3px solid #47718c; outline-offset: 2px; }
 </style>

@@ -11,14 +11,14 @@ const { garages, loading, initialized, error, refresh } = useGarageAdmin()
     <main id="main-content" class="main-content">
       <header class="topbar"><div class="breadcrumb">Miettis Park <span>/</span> <strong>Halliylläpito</strong></div><div class="actions"><button class="secondary-button" :disabled="loading" @click="refresh">Päivitä lista</button><a class="primary-button" href="/admin/garages/new">Lisää halli</a></div></header>
       <div class="page-content">
-        <section class="intro"><div><p class="eyebrow">HALLINTO</p><h1>Hallit</h1><p>Muokkaa hallin tietoja ja siirry ruudukkoeditoriin.</p></div></section>
+        <section class="intro"><div><p class="eyebrow">HALLINTO</p><h1>Hallit</h1><p>Avaa hallin tiedot, tilannekuva ja asetukset.</p></div></section>
         <div v-if="loading && !initialized" class="state-panel" role="status">Haetaan halleja…</div>
         <div v-if="error" class="state-panel state-error" role="alert"><strong>Hallien haku epäonnistui</strong><p>{{ error }}</p><button class="secondary-button" @click="refresh">Yritä uudelleen</button></div>
         <section v-if="initialized && !error && garages.length === 0" class="state-panel" role="status">Halleja ei löytynyt. <a href="/admin/garages/new">Luo ensimmäinen halli</a>.</section>
         <section v-if="garages.length > 0" class="garage-list" aria-label="Halliluettelo">
           <article v-for="garage in garages" :key="garage.id" class="garage-card">
             <div><p class="eyebrow">HALLI #{{ garage.id }}</p><h2>{{ garage.name }}</h2><p>{{ garage.address || 'Osoitetta ei tiedossa' }}</p><p class="muted">{{ garage.capacity }} paikkaa · vapaita {{ garage.freeLots }} · käytössä {{ garage.occupiedLots }} · ei tiedossa {{ garage.unknownLots }}</p><p v-if="garage.latitude === null || garage.longitude === null" class="muted">Sijaintikoordinaatteja ei ole määritetty.</p></div>
-            <div class="garage-actions"><a :href="`/garages/${garage.id}`">Hallin tiedot</a><a :href="`/garages/${garage.id}?tab=settings&amp;section=layout`">Muokkaa pohjaa</a></div>
+            <div class="garage-actions"><a :href="`/garages/${garage.id}`">Hallin tiedot</a></div>
           </article>
         </section>
         <footer class="footer">Miettis Park · Halliylläpito</footer>

@@ -36,13 +36,18 @@ function mapStub() {
       return mapInstance
     },
     Marker: function Marker(options?: { element?: HTMLElement }) {
+      let positioned = false
       const entry = {
         element: options?.element ?? document.createElement('div'),
         remove: vi.fn(function remove(this: { element: HTMLElement }) {
           this.element.remove()
         }),
-        setLngLat: vi.fn().mockReturnThis(),
+        setLngLat: vi.fn(function setLngLat() {
+          positioned = true
+          return entry
+        }),
         addTo: vi.fn(function addTo(this: { element: HTMLElement }) {
+          if (!positioned) throw new Error('Marker requires coordinates before addTo')
           container?.append(this.element)
           return this
         })
@@ -56,6 +61,35 @@ function mapStub() {
 }
 
 describe('GarageMap hall markers', () => {
+  it('initializes the location selector with coordinates before attaching its marker', async () => {
+    const stub = mapStub()
+    const wrapper = mount(GarageMap, {
+      props: { selectable: true, latitude: 60.17, longitude: 24.94 },
+      global: { provide: { [mapLibreLoaderKey]: stub.loader } }
+    })
+    await flushPromises()
+    expect(wrapper.find('[role=alert]').exists()).toBe(false)
+    expect(stub.markers).toHaveLength(1)
+    expect(stub.markers[0]?.setLngLat).toHaveBeenCalledWith([24.94, 60.17])
+    await wrapper.setProps({ latitude: 0, longitude: 0 })
+    expect(stub.markers[0]?.setLngLat).toHaveBeenLastCalledWith([0, 0])
+    expect(stub.markers).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('creates the selector marker when a previously missing position is selected', async () => {
+    const stub = mapStub()
+    const wrapper = mount(GarageMap, {
+      props: { selectable: true },
+      global: { provide: { [mapLibreLoaderKey]: stub.loader } }
+    })
+    await flushPromises()
+    expect(stub.markers).toHaveLength(0)
+    await wrapper.setProps({ latitude: 60, longitude: 24 })
+    expect(wrapper.find('[role=alert]').exists()).toBe(false)
+    expect(stub.markers).toHaveLength(1)
+    wrapper.unmount()
+  })
   it('renders direct garage anchors with occupancy and updates them without recreating map or refitting unchanged points', async () => {
     const stub = mapStub()
     const wrapper = mount(GarageMap, {

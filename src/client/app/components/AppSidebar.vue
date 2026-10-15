@@ -16,7 +16,6 @@ const refresh = () => list?.refresh()
 <template>
   <aside class="sidebar">
     <a class="brand" href="/"><span class="logo" aria-hidden="true">P</span><span>Miettis Park</span></a>
-    <p class="sidebar-caption">Tilaa saapua.</p>
     <nav aria-label="Päänavigaatio">
       <a href="/" :aria-current="route?.path === '/' ? 'page' : undefined">Kartta</a>
       <a href="/admin/garages" :aria-current="route?.path === '/admin/garages' ? 'page' : undefined">Hallit</a>
@@ -25,7 +24,7 @@ const refresh = () => list?.refresh()
       </ul>
       <p v-if="error" role="alert">Hallilistaa ei voitu hakea. <button type="button" @click="refresh">Yritä uudelleen</button></p>
     </nav>
-    <div class="sidebar-bottom">{{ !connected ? 'Yhteys katkennut, yhdistetään…' : !fresh ? 'Tilanne voi olla vanhentunut' : 'Reaaliaikainen' }}</div>
+    <div v-if="!connected || !fresh" class="sidebar-bottom">{{ !connected ? 'Yhteys katkennut, yhdistetään…' : 'Tilanne voi olla vanhentunut' }}</div>
   </aside>
 </template>
 <style scoped>

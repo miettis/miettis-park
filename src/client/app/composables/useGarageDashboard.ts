@@ -27,13 +27,15 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
   const error = ref('')
   const selectedGarage = computed(() => garages.value.find(garage => garage.id === garageId.value) ?? null)
 
-  function explainError(value: unknown): DashboardNotice {
+  function explainError(value: unknown, operation: 'gate' | 'lot' = 'gate'): DashboardNotice {
     const apiError = value as Error & { status?: number, problem?: { code?: string, gateOpened?: boolean, requiresCustomerService?: boolean, minimumOccurredAt?: string } }
     return {
       kind: 'error',
-      message: apiError.message || 'Toiminto epäonnistui. Päivitä tilanne ja yritä uudelleen.',
+      message: apiError.problem?.code === 'VISIT_ALREADY_PARKED'
+        ? 'Auto on jo pysäköitynä. Vapauta ensin sen nykyinen paikka ennen uuteen paikkaan ajamista. Paikkaan ajoa ei kirjattu.'
+        : apiError.message || 'Toiminto epäonnistui. Päivitä tilanne ja yritä uudelleen.',
       code: apiError.problem?.code,
-      gateOpened: apiError.problem?.gateOpened,
+      gateOpened: operation === 'gate' ? apiError.problem?.gateOpened : undefined,
       requiresCustomerService: apiError.problem?.requiresCustomerService
         || apiError.problem?.code === 'ACTIVE_VISIT_NOT_FOUND',
       minimumOccurredAt: apiError.problem?.minimumOccurredAt
@@ -179,7 +181,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
       await afterMutation(`Paikan käyttö kirjattu. Tapahtuma-aika: ${effectiveTime}.`, visitId === null ? 'Tuntematon auto tai käynti' : undefined)
     } catch (cause) {
       if (commandRoute !== routeGeneration) return
-      notice.value = explainError(cause)
+      notice.value = explainError(cause, 'lot')
       if ((cause as { status?: number }).status === 409) {
         await refresh()
       }
@@ -204,7 +206,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
       await afterMutation(`${message} Tapahtuma-aika: ${formatEffectiveTime(result.effectiveOccurredAt)}.`)
     } catch (cause) {
       if (commandRoute !== routeGeneration) return
-      notice.value = explainError(cause)
+      notice.value = explainError(cause, 'lot')
       if ((cause as { status?: number }).status === 409) {
         await refresh()
       }

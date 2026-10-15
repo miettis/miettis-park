@@ -33,7 +33,7 @@ describe('GarageLayoutView', () => {
     expect(cells[0]?.text()).toContain('1')
     expect(cells[0]?.text()).toContain('Vapaa')
     expect(cells[0]?.classes()).toContain('status-Free')
-    expect(cells[1]?.text()).toBe('Ajoväylä')
+    expect(cells[1]?.text()).toBe('')
     expect(cells[1]?.classes()).toContain('road-cell')
     expect(cells[2]?.text()).toContain('3')
     expect(cells[2]?.text()).toContain('Ei tiedossa')
