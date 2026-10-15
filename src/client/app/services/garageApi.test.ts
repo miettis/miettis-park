@@ -82,3 +82,18 @@ describe('HttpGarageApi event time commands', () => {
     })
   })
 })
+
+
+it('uses the history and pricing contracts with paging, cancellation and original pricing values', async () => {
+  const fetchMock = vi.fn(async (_path: string, _init?: RequestInit) => response({ garageId: 7, tiers: [] }))
+  vi.stubGlobal('fetch', fetchMock)
+  const api = new HttpGarageApi()
+  const controller = new AbortController()
+  await api.getVisitHistory(7, 50, controller.signal)
+  await api.getPricing(7)
+  const tiers = [{ amount: 0.5, startDuration: '00:00:00', perUnit: '00:10:00', endDuration: null }]
+  await api.savePricing(7, tiers, [])
+  expect(fetchMock.mock.calls.map(call => call[0])).toEqual(['/api/garages/7/visits?skip=50&take=50', '/api/garages/7/pricing', '/api/garages/7/pricing'])
+  expect(fetchMock.mock.calls[0]![1]).toMatchObject({ signal: controller.signal })
+  expect(fetchMock.mock.calls[2]![1]).toMatchObject({ method: 'PUT', body: JSON.stringify({ tiers, expectedTiers: [] }) })
+})

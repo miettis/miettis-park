@@ -395,3 +395,8 @@ Yllä oleva on kokonaan AJAMATTA. Puuttuva ympäristö, avain tai ihmisen hyväk
 API-/DTO-sopimukset, occurredAt/Simulation:Enabled, providerin backend-asetukset, 503-varapolku, JPEG/PNG-/resurssirajat sekä ulkoinen lähetys/säilytys on kuvattu READMEssa ja yllä V3-01/02-osioissa. Liiketoiminnan ydin pysyy: kerran ennen readeria ratkaistu aika → EnterGarageAtAsync → hallilukon sisäinen historia/nykytila → commitin jälkeinen SSE; Visit ja Parking eivät sulje toisiaan. Ei uutta skeemaa/harnessia tai avointa hardening-urakkaa.
 
 Milestone/61 sisältää lähtötilassa V3-01/02:n integroidun historian; V3-03:n merge on PullPotentialin submission/finalisoinnin seuraava toimenpide, ei tässä dokumentissa jo todennettu tapahtuma. PullPotential omistaa commitit/PR:t/milestone-integraation. Ihmisen ympäristöhyväksyntä/release/SemVer-tagi/image-julkaisu/deploy ovat erillisiä eikä niitä tehty. Hyödylliset jatkokomennot: node scripts\openapi.mjs, dotnet build MiettisPark.slnx -c Release, dotnet test MiettisPark.slnx -c Release ja npm run check.
+
+
+## Testikattavuuden tarkistus 15.10.2026
+
+Olennaisten toimintapolkujen katselmointi, täydennetyt testit ja rajaukset: [TEST-COVERAGE.md](TEST-COVERAGE.md). Backend 264 testiä (0 failed / 0 skipped), frontend 99 testiä; lint, tyypitys ja tuotantobuild läpäisty. Paikallinen testiharness ei korvaa oikean PostgreSQL:n tai selaimen ympäristövalidointia.
