@@ -96,6 +96,7 @@ export interface EntryDto {
   startAt: string
   outcome: EntryOutcome
   gateOpened: boolean
+  effectiveOccurredAt: string
 }
 
 export interface LotEntryDto {
@@ -103,12 +104,14 @@ export interface LotEntryDto {
   lotId: number
   visitId: number | null
   startAt: string
+  effectiveOccurredAt: string
 }
 
 export interface LotExitDto {
   lotId: number
   parkingId: number | null
   missingParkingObservation: boolean
+  effectiveOccurredAt: string
 }
 
 export interface ReceiptDto {
@@ -121,6 +124,7 @@ export interface ReceiptDto {
   cost: number
   currency: string
   gateOpened: boolean
+  effectiveOccurredAt: string
 }
 
 export interface ProblemDetailsDto {
@@ -129,9 +133,38 @@ export interface ProblemDetailsDto {
   code?: string
   gateOpened?: boolean
   requiresCustomerService?: boolean
+  minimumOccurredAt?: string
 }
 
 export interface ApiError extends Error {
   status?: number
   problem?: ProblemDetailsDto
 }
+
+export interface ImageEntryDto {
+  visitId: number
+  licenseNumber: string
+  startAt: string
+  outcome: EntryOutcome
+  effectiveOccurredAt: string
+  gateOpened: boolean
+  recognizedLicenseNumber: string
+}
+
+export interface VisitHistoryDto {
+  visitId: number
+  licenseNumber: string
+  startAt: string
+  endAt: string | null
+  closedAt: string | null
+  status: 'Active' | 'Completed' | 'Interrupted'
+  closureReason: string | null
+  cost: number | null
+}
+export interface FeeTierDto {
+  amount: number
+  perUnit: string
+  startDuration: string
+  endDuration: string | null
+}
+export interface PricingDto { garageId: number, tiers: FeeTierDto[] }

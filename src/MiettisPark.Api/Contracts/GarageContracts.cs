@@ -1,9 +1,17 @@
 using MiettisPark.Api.Data;
+using System.Text.Json.Serialization;
 
 namespace MiettisPark.Api.Contracts;
 
-public sealed record LicenseRequest(string? LicenseNumber);
-public sealed record LotEntryRequest(int? VisitId);
+public sealed record LicenseRequest(string? LicenseNumber,
+    [property: JsonConverter(typeof(OccurredAtJsonConverter))]
+    DateTimeOffset? OccurredAt = null);
+public sealed record LotEntryRequest(int? VisitId,
+    [property: JsonConverter(typeof(OccurredAtJsonConverter))]
+    DateTimeOffset? OccurredAt = null);
+public sealed record LotExitRequest(
+    [property: JsonConverter(typeof(OccurredAtJsonConverter))]
+    DateTimeOffset? OccurredAt = null);
 public sealed record GarageDto(int Id, string Name, string? Address, double? Latitude, double? Longitude,
     int Capacity, int FreeLots, int OccupiedLots, int UnknownLots, bool IsFull);
 public sealed record GarageRequest(string? Name, string? Address, double? Latitude, double? Longitude);
@@ -21,7 +29,9 @@ public enum EntryOutcome
     Duplicate,
     RecoveredMissingExit
 }
-public sealed record EntryDto(int VisitId, string LicenseNumber, DateTimeOffset StartAt, EntryOutcome Outcome, bool GateOpened = true);
-public sealed record LotEntryDto(int ParkingId, int LotId, int? VisitId, DateTimeOffset StartAt);
-public sealed record LotExitDto(int LotId, int? ParkingId, bool MissingParkingObservation);
-public sealed record ReceiptDto(int VisitId, string LicenseNumber, DateTimeOffset StartAt, DateTimeOffset EndAt, DateTimeOffset ClosedAt, TimeSpan Duration, decimal Cost, string Currency = "EUR", bool GateOpened = true);
+public sealed record EntryDto(int VisitId, string LicenseNumber, DateTimeOffset StartAt, EntryOutcome Outcome, DateTimeOffset EffectiveOccurredAt, bool GateOpened = true);
+public sealed record LotEntryDto(int ParkingId, int LotId, int? VisitId, DateTimeOffset StartAt, DateTimeOffset EffectiveOccurredAt);
+public sealed record LotExitDto(int LotId, int? ParkingId, bool MissingParkingObservation, DateTimeOffset EffectiveOccurredAt);
+public sealed record ReceiptDto(int VisitId, string LicenseNumber, DateTimeOffset StartAt, DateTimeOffset EndAt, DateTimeOffset ClosedAt, TimeSpan Duration, decimal Cost, DateTimeOffset EffectiveOccurredAt, string Currency = "EUR", bool GateOpened = true);
+
+public sealed record ImageEntryDto(int VisitId, string LicenseNumber, DateTimeOffset StartAt, EntryOutcome Outcome, DateTimeOffset EffectiveOccurredAt, bool GateOpened, string RecognizedLicenseNumber);

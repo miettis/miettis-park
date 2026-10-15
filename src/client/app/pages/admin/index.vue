@@ -1,22 +1,14 @@
 <script setup lang="ts">
+import AppSidebar from '../../components/AppSidebar.vue'
 import AvailabilitySummary from '../../components/AvailabilitySummary.vue'
 import { elapsedLabel, timeLabel, useAdminDashboard } from '../../composables/useAdminDashboard'
 
-const { selectedGarage, availability, parkings, visits, updatedAt, loading, initialized, error, refresh } = useAdminDashboard()
+const { garages, selectedGarage, availability, parkings, visits, updatedAt, loading, initialized, error, refresh } = useAdminDashboard()
 </script>
 
 <template>
   <div class="app-shell">
-    <aside class="sidebar">
-      <a class="brand" href="#main-content"><span class="logo" aria-hidden="true">P</span><span>Miettis Park</span></a>
-      <p class="sidebar-caption">Tilaa saapua.</p>
-      <nav aria-label="Päänavigaatio">
-        <a href="/">↗ Porttisimulaatio</a>
-        <a href="/admin" aria-current="page">▦ Hallinta</a>
-        <a href="/admin/garages">Hallit</a>
-      </nav>
-      <div class="sidebar-bottom">Paikallinen simulaatio · Lukeva näkymä</div>
-    </aside>
+    <AppSidebar :garages="garages" />
     <main id="main-content" class="main-content">
       <header class="topbar">
         <div class="breadcrumb">Miettis Park <span aria-hidden="true">/</span> <strong>Hallinta</strong></div>

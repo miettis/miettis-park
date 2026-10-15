@@ -7,6 +7,77 @@ namespace MiettisPark.Api.Services;
 
 public sealed class GarageManagementService(ParkingDbContext database, IParkingWriteTransactionFactory transactions, IGarageEventPublisher? events = null)
 {
+    public async Task<List<VisitHistoryDto>> GetVisitHistoryAsync(int id, int skip, int take, CancellationToken token)
+    {
+        if (skip < 0 || take is < 1 or > 100)
+        {
+            throw new ParkingError("INVALID_PAGING", 400, "Tarkista sivutus: skip >= 0 ja take 1–100.");
+        }
+
+        if (!await database.ParkingGarages.AnyAsync(garage => garage.Id == id, token))
+        {
+            throw ParkingError.NotFound("GARAGE_NOT_FOUND");
+        }
+
+        return await database.Visits.AsNoTracking()
+            .Where(visit => visit.ParkingGarageId == id)
+            .OrderByDescending(visit => visit.StartAt)
+            .ThenByDescending(visit => visit.Id)
+            .Skip(skip)
+            .Take(take)
+            .Select(visit => new VisitHistoryDto(
+                visit.Id, visit.LicenseNumber, visit.StartAt, visit.EndAt,
+                visit.ClosedAt, visit.Status, visit.ClosureReason, visit.Cost))
+            .ToListAsync(token);
+    }
+
+    public async Task<PricingDto> GetPricingAsync(int id, CancellationToken token)
+    {
+        var garage = await database.ParkingGarages.AsNoTracking()
+            .SingleOrDefaultAsync(garage => garage.Id == id, token)
+            ?? throw ParkingError.NotFound("GARAGE_NOT_FOUND");
+        return new PricingDto(id, garage.ParkingFeeConfiguration);
+    }
+
+    public Task<PricingDto> SavePricingAsync(int id, PricingRequest request, CancellationToken token) => WriteAsync(async transaction =>
+    {
+        var garage = await transaction.LockGarageAsync(id, token)
+            ?? throw ParkingError.NotFound("GARAGE_NOT_FOUND");
+        if (request.Tiers == null || request.ExpectedTiers == null
+            || request.Tiers.Count > 20 || request.Tiers.Any(tier => tier == null)
+            || request.ExpectedTiers.Any(tier => tier == null))
+        {
+            throw new ParkingError("INVALID_PRICING", 400, "Anna 1–20 hinnastoporrasta.");
+        }
+
+        try
+        {
+            new ParkingFeeCalculator().Validate(request.Tiers);
+        }
+        catch (ArgumentException)
+        {
+            throw new ParkingError("INVALID_PRICING", 400, "Hintaportaiden on katettava aika nollasta alkaen ilman aukkoja. Viimeinen porras on rajaton.");
+        }
+
+        var current = garage.ParkingFeeConfiguration.Select(tier =>
+            (tier.Amount, tier.PerUnit, tier.StartDuration, tier.EndDuration));
+        var expected = request.ExpectedTiers.Select(tier =>
+            (tier.Amount, tier.PerUnit, tier.StartDuration, tier.EndDuration));
+        if (!current.SequenceEqual(expected))
+        {
+            throw new ParkingError("PRICING_CONFLICT", 409, "Hinnasto on muuttunut. Lataa hinnasto uudelleen ennen tallennusta.");
+        }
+
+        if (await database.Visits.AnyAsync(visit => visit.ParkingGarageId == id && visit.Status == VisitStatus.Active, token))
+        {
+            throw new ParkingError("ACTIVE_VISITS", 409, "Päätä aktiiviset hallikäynnit ennen hinnaston muuttamista.");
+        }
+
+        garage.ParkingFeeConfiguration = request.Tiers;
+        await database.SaveChangesAsync(token);
+        return new PricingDto(id, garage.ParkingFeeConfiguration);
+    }, token);
+
     public Task<GarageDto> CreateAsync(GarageRequest request, CancellationToken token) => WriteAsync(async transaction =>
     {
         var garage = new ParkingGarage { ParkingFeeConfiguration = DefaultParkingFees.Create() };
@@ -240,6 +311,7 @@ public sealed class GarageManagementService(ParkingDbContext database, IParkingW
             var change = result switch
             {
                 GarageDto garage => new GarageChanged(garage.Id, "garage"),
+                PricingDto pricing => new GarageChanged(pricing.GarageId, "garage"),
                 LayoutDto layout => new GarageChanged(layout.GarageId, "layout"),
                 _ => throw new InvalidOperationException("Unsupported garage mutation.")
             };

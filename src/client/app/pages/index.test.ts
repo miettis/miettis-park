@@ -1,10 +1,13 @@
+import type { VueWrapper } from '@vue/test-utils'
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h, provide } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import IndexPage from '../components/GarageSimulation.vue'
 import LotCard from '../components/LotCard.vue'
+import EventTimeInput from '../components/EventTimeInput.vue'
 import { garageApiKey, type GarageApi } from '../services/garageApi'
-import type { ActiveParkingDto, ActiveVisitDto, AvailabilityDto, EntryDto, GarageDto, LotDto, ReceiptDto } from '../types/garage'
+import type { ActiveParkingDto, ActiveVisitDto, AvailabilityDto, EntryDto, GarageDto, ImageEntryDto, LotDto, ReceiptDto } from '../types/garage'
+import { toEventTime } from '../utils/eventTime'
 
 const garages: GarageDto[] = [{ id: 1, name: 'Keskustan pysäköinti', address: null, latitude: null, longitude: null, capacity: 0, freeLots: 0, occupiedLots: 0, unknownLots: 0, isFull: false }]
 const initialLots: LotDto[] = [
@@ -35,8 +38,9 @@ class StubGarageApi implements GarageApi {
       this.visits = this.visits.filter(visit => visit.licenseNumber !== normalized)
       this.visits.push({ visitId, licenseNumber: normalized, startAt, lotId: null, lotNumber: null })
     }
-    return { visitId, licenseNumber: normalized, startAt, outcome: this.entryOutcome, gateOpened: true }
+    return { visitId, licenseNumber: normalized, startAt, outcome: this.entryOutcome, gateOpened: true, effectiveOccurredAt: '2026-10-14T10:00:00Z' }
   })
+  enterGarageFromImage = vi.fn(async (_garageId: number, _image: File, _occurredAt: string | null): Promise<ImageEntryDto> => ({ visitId: 31, licenseNumber: 'ABC123', startAt: '2026-10-14T12:00:00Z', outcome: 'Entry', effectiveOccurredAt: '2026-10-14T10:00:00Z', gateOpened: true, recognizedLicenseNumber: 'ABC123' }))
   exitGarage = vi.fn(async (_garageId: number, licenseNumber: string): Promise<ReceiptDto> => {
     if (this.failNextGarageExit) {
       this.failNextGarageExit = false
@@ -51,7 +55,8 @@ class StubGarageApi implements GarageApi {
       duration: '01:15:00',
       cost: 2.5,
       currency: 'EUR',
-      gateOpened: true
+      gateOpened: true,
+      effectiveOccurredAt: '2026-10-14T11:15:00Z'
     }
     this.visits = this.visits.filter(visit => visit.licenseNumber !== licenseNumber.toUpperCase())
     return receipt
@@ -65,12 +70,12 @@ class StubGarageApi implements GarageApi {
     this.lots.find(lot => lot.id === lotId)!.currentStatus = 'Occupied'
     const visit = this.visits.find(item => item.visitId === visitId)
     this.parkings.push({ parkingId: this.parkings.length + 1, lotId, lotNumber: this.lots.find(lot => lot.id === lotId)!.number, visitId, licenseNumber: visit?.licenseNumber ?? null, startAt: '2026-10-14T10:10:00Z' })
-    return { parkingId: this.parkings.length, lotId, visitId, startAt: '2026-10-14T10:10:00Z' }
+    return { parkingId: this.parkings.length, lotId, visitId, startAt: '2026-10-14T10:10:00Z', effectiveOccurredAt: '2026-10-14T10:10:00Z' }
   })
   exitLot = vi.fn(async (_garageId: number, lotId: number) => {
     this.lots.find(lot => lot.id === lotId)!.currentStatus = 'Free'
     this.parkings = this.parkings.filter(parking => parking.lotId !== lotId)
-    return { lotId, parkingId: 1, missingParkingObservation: false }
+    return { lotId, parkingId: 1, missingParkingObservation: false, effectiveOccurredAt: '2026-10-14T10:00:00Z' }
   })
 
   private availability(): AvailabilityDto {
@@ -99,6 +104,14 @@ function readRefreshCounts(api: StubGarageApi) {
   return [api.getLayout.mock.calls.length, api.getActiveVisits.mock.calls.length, api.getActiveParkings.mock.calls.length]
 }
 
+
+async function openLot(wrapper: VueWrapper, position = 1): Promise<void> {
+  if (wrapper.find('.lot-modal[open]').exists()) await wrapper.get('[aria-label="Sulje paikan toiminnot"]').trigger('click')
+  await wrapper.get('#tab-simulation').trigger('click')
+  await wrapper.findAll('#panel-simulation .parking-lot')[position - 1]!.trigger('click')
+  await flushPromises()
+}
+
 describe('garage dashboard with API stubs', () => {
   it('supports gate entry, linked parking, moving lots, and server receipt', async () => {
     const { wrapper, api } = render()
@@ -109,36 +122,39 @@ describe('garage dashboard with API stubs', () => {
     const beforeEntry = readRefreshCounts(api)
     await wrapper.get('form.gate-form').trigger('submit')
     await settle()
-    expect(api.enterGarage).toHaveBeenCalledWith(1, 'abc-123')
+    expect(api.enterGarage).toHaveBeenCalledWith(1, 'abc-123', null)
     expect(wrapper.text()).toContain('Sisäänajo kirjattu. ABC-123')
     expect(readRefreshCounts(api)).toEqual(beforeEntry.map(count => count + 1))
 
-    await wrapper.get('nav button:nth-child(2)').trigger('click')
+    await wrapper.get('#tab-simulation').trigger('click')
     await settle()
-    await wrapper.get('.lot-card:nth-child(1) button').trigger('click')
+    await openLot(wrapper, 1)
+    await wrapper.get('.lot-card button').trigger('click')
     await wrapper.get('.lot-entry-form select').setValue('31')
     await wrapper.get('.lot-entry-form').trigger('submit')
     await settle()
-    expect(api.enterLot).toHaveBeenCalledWith(1, 11, 31)
+    expect(api.enterLot).toHaveBeenCalledWith(1, 11, 31, null)
     expect(api.lots[0]?.currentStatus).toBe('Occupied')
 
-    await wrapper.get('.lot-card:nth-child(1) button').trigger('click')
+    await openLot(wrapper, 1)
+    await wrapper.get('.lot-card button').trigger('click')
     await settle()
-    expect(api.exitLot).toHaveBeenCalledWith(1, 11)
+    expect(api.exitLot).toHaveBeenCalledWith(1, 11, null)
     expect(api.lots[0]?.currentStatus).toBe('Free')
-    await wrapper.get('.lot-card:nth-child(4) button').trigger('click')
+    await openLot(wrapper, 4)
+    await wrapper.get('.lot-card button').trigger('click')
     await wrapper.get('.lot-entry-form select').setValue('31')
     await wrapper.get('.lot-entry-form').trigger('submit')
     await settle()
-    expect(api.enterLot).toHaveBeenLastCalledWith(1, 14, 31)
+    expect(api.enterLot).toHaveBeenLastCalledWith(1, 14, 31, null)
 
-    await wrapper.get('nav button:nth-child(1)').trigger('click')
+    await wrapper.get('#tab-simulation').trigger('click')
     await settle()
     await wrapper.get('.segmented button:nth-child(2)').trigger('click')
     await wrapper.get('#license-number').setValue('abc-123')
     await wrapper.get('form.gate-form').trigger('submit')
     await settle()
-    expect(api.exitGarage).toHaveBeenCalledWith(1, 'abc-123')
+    expect(api.exitGarage).toHaveBeenCalledWith(1, 'abc-123', null)
     expect(wrapper.get('.receipt-panel').text()).toContain('2,50 €')
     expect(wrapper.get('.receipt-panel').text()).toContain('1 h 15 min')
   })
@@ -186,9 +202,11 @@ describe('garage dashboard with API stubs', () => {
     expect(api.parkings[0]?.parkingId).toBe(7)
     expect(api.lots[0]?.currentStatus).toBe('Occupied')
     expect(readRefreshCounts(api)).toEqual(before.map(count => count + 1))
-    await wrapper.get('nav button:nth-child(2)').trigger('click')
-    expect(wrapper.get('.lot-card:nth-child(1)').text()).toContain('Varattu')
-    await wrapper.get('.lot-card:nth-child(4) button').trigger('click')
+    await wrapper.get('#tab-simulation').trigger('click')
+    await openLot(wrapper, 1)
+    expect(wrapper.get('.lot-card').text()).toContain('Varattu')
+    await openLot(wrapper, 4)
+    await wrapper.get('.lot-card button').trigger('click')
     expect((wrapper.get('.lot-entry-form select').element as HTMLSelectElement).value).toBe('')
     const options = wrapper.findAll('.lot-entry-form option').map(option => option.attributes('value'))
     expect(options).toContain('32')
@@ -198,20 +216,21 @@ describe('garage dashboard with API stubs', () => {
   it('supports independent parking and only offers entry for Free lots', async () => {
     const { wrapper, api } = render()
     await settle()
-    await wrapper.get('nav button:nth-child(2)').trigger('click')
+    await wrapper.get('#tab-simulation').trigger('click')
     await settle()
 
-    const cards = wrapper.findAll('.lot-card')
-    expect(cards[0]?.find('button').text()).toBe('Kirjaa käyttö')
-    expect(cards[1]?.findAll('button').map(button => button.text()).join(' ')).toContain('Simuloi paikan vapautuminen')
-    expect(cards[2]?.findAll('button').map(button => button.text()).join(' ')).toContain('Simuloi paikan vapautuminen')
-    expect(cards[1]?.text()).not.toContain('Yhdistä hallikäyntiin')
-    expect(cards[2]?.text()).not.toContain('Yhdistä hallikäyntiin')
-
-    await cards[0]!.get('button').trigger('click')
-    await cards[0]!.get('form').trigger('submit')
+    expect(wrapper.findAll('.lot-card')).toHaveLength(0)
+    for (const position of [2, 3]) {
+      await openLot(wrapper, position)
+      expect(wrapper.get('.lot-card').text()).toContain('Simuloi paikan vapautuminen')
+      expect(wrapper.get('.lot-card').text()).not.toContain('Yhdistä hallikäyntiin')
+    }
+    await openLot(wrapper, 1)
+    expect(wrapper.get('.lot-card button').text()).toBe('Kirjaa käyttö')
+    await wrapper.get('.lot-card button').trigger('click')
+    await wrapper.get('.lot-entry-form').trigger('submit')
     await settle()
-    expect(api.enterLot).toHaveBeenCalledWith(1, 11, null)
+    expect(api.enterLot).toHaveBeenCalledWith(1, 11, null, null)
   })
 
   it('refreshes availability, active visits, and parkings after a 409 and leaves gate closed without fabricated contact details', async () => {
@@ -236,8 +255,9 @@ describe('garage dashboard with API stubs', () => {
     expect(wrapper.find('.receipt-panel').exists()).toBe(false)
     expect(wrapper.text()).toContain('CURRENT')
     expect(wrapper.get('.stat-card:nth-child(4) strong').text()).toBe('1')
-    await wrapper.get('nav button:nth-child(2)').trigger('click')
-    expect(wrapper.get('.lot-card:nth-child(1)').text()).toContain('Varattu')
+    await wrapper.get('#tab-simulation').trigger('click')
+    await openLot(wrapper, 1)
+    expect(wrapper.get('.lot-card').text()).toContain('Varattu')
     expect(readRefreshCounts(api)).toEqual(before.map(count => count + 1))
   })
 
@@ -246,8 +266,11 @@ describe('garage dashboard with API stubs', () => {
     api.visits = [{ visitId: 31, licenseNumber: 'CLOSED', startAt: '2026-10-14T08:00:00Z', lotId: null, lotNumber: null }]
     const { wrapper } = render(api)
     await settle()
-    await wrapper.get('nav button:nth-child(2)').trigger('click')
-    await wrapper.get('.lot-card:nth-child(1) button').trigger('click')
+    await wrapper.get('#tab-simulation').trigger('click')
+    await openLot(wrapper)
+    await wrapper.get('#event-time').setValue('2026-10-14T13:30:45')
+    await openLot(wrapper, 1)
+    await wrapper.get('.lot-card button').trigger('click')
     await wrapper.get('.lot-entry-form select').setValue('31')
     api.visits = []
     api.failNextLotEntry = true
@@ -255,9 +278,14 @@ describe('garage dashboard with API stubs', () => {
     await wrapper.get('.lot-entry-form').trigger('submit')
     await settle()
     expect(wrapper.get('[role="alert"]').text()).toContain('LOT_UNAVAILABLE')
-    expect(wrapper.get('.lot-card:nth-child(1)').text()).toContain('Varattu')
+    await openLot(wrapper, 1)
+    expect(wrapper.get('.lot-card').text()).toContain('Varattu')
+    expect((wrapper.get('#event-time').element as HTMLInputElement).value).toBe('2026-10-14T13:30:45.000')
+    expect(wrapper.find('[aria-pressed="true"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('valittu')
     expect(readRefreshCounts(api)).toEqual(before.map(count => count + 1))
-    await wrapper.get('.lot-card:nth-child(4) button').trigger('click')
+    await openLot(wrapper, 4)
+    await wrapper.get('.lot-card button').trigger('click')
     expect(wrapper.findAll('.lot-entry-form option').map(option => option.attributes('value'))).not.toContain('31')
   })
   it('clears an earlier receipt as soon as a subsequent exit attempt starts and fails', async () => {
@@ -292,20 +320,21 @@ describe('garage dashboard with API stubs', () => {
     expect(api.getGarages).toHaveBeenCalledTimes(2)
     expect(api.getLayout).toHaveBeenCalledTimes(2)
     expect(second.wrapper.get('.stat-primary strong').text()).toContain('2')
-    await second.wrapper.get('nav button:nth-child(2)').trigger('click')
-    expect(second.wrapper.get('.lot-grid').text()).toContain('Varattu')
+    await second.wrapper.get('#tab-simulation').trigger('click')
+    expect(second.wrapper.get('#panel-simulation .garage-layout-view').text()).toContain('Varattu')
     expect(api.getActiveVisits).toHaveBeenCalledTimes(2)
     expect(api.getActiveParkings).toHaveBeenCalledTimes(2)
-    await second.wrapper.get('.lot-card:nth-child(1) button').trigger('click')
+    await openLot(second.wrapper, 1)
+    await second.wrapper.get('.lot-card button').trigger('click')
     await settle()
-    expect(api.exitLot).toHaveBeenCalledWith(1, 11)
-    await second.wrapper.get('nav button:nth-child(1)').trigger('click')
+    expect(api.exitLot).toHaveBeenCalledWith(1, 11, null)
+    await second.wrapper.get('#tab-simulation').trigger('click')
     expect(second.wrapper.text()).toContain('RELOAD')
     await second.wrapper.get('.segmented button:nth-child(2)').trigger('click')
     await second.wrapper.get('#license-number').setValue('reload')
     await second.wrapper.get('form.gate-form').trigger('submit')
     await settle()
-    expect(api.exitGarage).toHaveBeenCalledWith(1, 'reload')
+    expect(api.exitGarage).toHaveBeenCalledWith(1, 'reload', null)
   })
 })
 
@@ -315,7 +344,7 @@ it('records entry in a full garage and prevents concurrent submissions', async (
   let finish!: () => void
   api.enterGarage.mockImplementationOnce(async (_id: number, licenseNumber: string) => {
     await new Promise<void>((resolve) => { finish = resolve })
-    return { visitId: 31, licenseNumber, startAt: '2026-10-14T10:00:00Z', outcome: 'Entry' as const, gateOpened: true }
+    return { visitId: 31, licenseNumber, startAt: '2026-10-14T10:00:00Z', outcome: 'Entry' as const, gateOpened: true, effectiveOccurredAt: '2026-10-14T10:00:00Z' }
   })
   const { wrapper } = render(api)
   await settle()
@@ -347,6 +376,7 @@ it('shows an empty garage list and a recoverable load failure', async () => {
 it('clears a closed visit selection in an already open lot form after API refresh', async () => {
   const wrapper = mount(LotCard, {
     props: {
+      eventTimeValid: true,
       lot: { id: 14, number: 4, currentStatus: 'Free' },
       visits: [{ visitId: 31, licenseNumber: 'OLD', startAt: '2026-10-14T08:00:00Z', lotId: null, lotNumber: null }],
       submitting: false
@@ -359,4 +389,163 @@ it('clears a closed visit selection in an already open lot form after API refres
   expect(wrapper.find('option[value="31"]').exists()).toBe(false)
   await wrapper.get('form').trigger('submit')
   expect(wrapper.emitted('enter')).toEqual([[14, null]])
+})
+
+
+describe('event time on simulation commands', () => {
+  it('snapshots the explicit offset before a pending request and locks the shared time controls', async () => {
+    const api = new StubGarageApi()
+    let finish!: (receipt: EntryDto) => void
+    api.enterGarage.mockImplementationOnce(async (_id: number, _licenseNumber: string) => await new Promise<EntryDto>(resolve => { finish = resolve }).then(result => result))
+    const { wrapper } = render(api)
+    await settle()
+    const localTime = '2026-10-14T13:30:45'
+    await wrapper.get('#event-time').setValue(localTime)
+    await wrapper.get('#license-number').setValue(' SNAP-123 ')
+    await wrapper.get('.gate-form').trigger('submit')
+
+    const expectedOccurredAt = toEventTime(localTime).occurredAt
+    expect(api.enterGarage).toHaveBeenCalledWith(1, 'SNAP-123', expectedOccurredAt)
+    expect(wrapper.get('#event-time').attributes('disabled')).toBeDefined()
+    expect(wrapper.findAll('.event-time-actions button').every(button => button.attributes('disabled') !== undefined)).toBe(true)
+
+    finish({ visitId: 50, licenseNumber: 'SNAP-123', startAt: '2026-10-14T10:30:45Z', outcome: 'Entry', gateOpened: true, effectiveOccurredAt: '2026-10-14T10:30:45Z' })
+    await settle()
+    expect(wrapper.get('#event-time').attributes('disabled')).toBeUndefined()
+  })
+
+  it('shows the minimum event time after 409 and preserves event time, registry and selected lot across refresh', async () => {
+    const api = new StubGarageApi()
+    const { wrapper } = render(api)
+    await settle()
+    const localTime = '2026-10-14T13:30:45'
+    await wrapper.get('#event-time').setValue(localTime)
+    await wrapper.get('#license-number').setValue('CONFLICT-1')
+    api.enterGarage.mockRejectedValueOnce(Object.assign(new Error('Aika on liian aikainen.'), {
+      status: 409,
+      problem: { code: 'EVENT_TIME_CONFLICT', minimumOccurredAt: '2026-10-14T10:00:00Z' }
+    }))
+    await wrapper.get('.gate-form').trigger('submit')
+    await settle()
+
+    expect(api.enterGarage).toHaveBeenCalledWith(1, 'CONFLICT-1', toEventTime(localTime).occurredAt)
+    expect(wrapper.get('#event-time').element).toHaveProperty('value', `${localTime}.000`)
+    expect((wrapper.get('#license-number').element as HTMLInputElement).value).toBe('CONFLICT-1')
+    expect(wrapper.get('[role="alert"]').text()).toContain('2026-10-14T10:00:00Z')
+
+    await wrapper.get('#tab-simulation').trigger('click')
+    await openLot(wrapper)
+    await wrapper.get('.refresh-button').trigger('click')
+    await settle()
+    expect(wrapper.get('#event-time').element).toHaveProperty('value', `${localTime}.000`)
+    expect(wrapper.text()).toContain('valittu')
+    wrapper.unmount()
+  })
+
+  it('rejects impossible local dates instead of producing an API timestamp', () => {
+    const invalid = toEventTime('2026-02-30T10:20:30')
+    expect(invalid.error).toBeTruthy()
+    expect(invalid.occurredAt).toBeNull()
+  })
+})
+
+
+it('blocks every parking and gate command for an impossible local event time', async () => {
+  const api = new StubGarageApi()
+  const { wrapper } = render(api)
+  await settle()
+  wrapper.findComponent(EventTimeInput).vm.$emit('update:modelValue', '2026-02-30T10:20:30')
+  await settle()
+  expect(wrapper.get('#event-time').attributes('aria-invalid')).toBe('true')
+  await wrapper.get('#license-number').setValue('INVALID-TIME')
+  expect(wrapper.get('.gate-form button[type="submit"]').attributes('disabled')).toBeDefined()
+  await wrapper.get('.gate-form').trigger('submit')
+  expect(api.enterGarage).not.toHaveBeenCalled()
+
+  await wrapper.get('#tab-simulation').trigger('click')
+  await openLot(wrapper, 1)
+  await wrapper.get('.lot-card button').trigger('click')
+  expect(wrapper.get('.lot-entry-form button[type="submit"]').attributes('disabled')).toBeDefined()
+  await wrapper.get('.lot-entry-form').trigger('submit')
+  expect(api.enterLot).not.toHaveBeenCalled()
+  await openLot(wrapper, 2)
+  expect(wrapper.get('.lot-card .lot-action').attributes('disabled')).toBeDefined()
+  await openLot(wrapper, 2)
+  await wrapper.get('.lot-card .lot-action').trigger('click')
+  expect(api.exitLot).not.toHaveBeenCalled()
+  wrapper.unmount()
+})
+
+
+it('shows disabled simulation-time feedback without losing the selected time or license', async () => {
+  const api = new StubGarageApi()
+  const { wrapper } = render(api)
+  await settle()
+  await wrapper.get('#event-time').setValue('2026-10-14T13:30:45')
+  await wrapper.get('#license-number').setValue('KEEP-TIME')
+  api.enterGarage.mockRejectedValueOnce(Object.assign(new Error('Simulation time disabled'), {
+    status: 400, problem: { code: 'SIMULATION_TIME_DISABLED', gateOpened: false }
+  }))
+  await wrapper.get('.gate-form').trigger('submit')
+  await settle()
+  expect(wrapper.get('[role="alert"]').text()).toContain('SIMULATION_TIME_DISABLED')
+  expect((wrapper.get('#event-time').element as HTMLInputElement).value).toContain('2026-10-14T13:30:45')
+  expect((wrapper.get('#license-number').element as HTMLInputElement).value).toBe('KEEP-TIME')
+  expect(wrapper.get('#event-time').attributes('disabled')).toBeUndefined()
+  wrapper.unmount()
+})
+
+it('starts with overview and exposes garage navigation and the four detail tabs', async () => {
+  const { wrapper } = render()
+  await settle()
+  expect(wrapper.get('#tab-overview').attributes('aria-selected')).toBe('true')
+  expect(wrapper.get('#panel-overview').text()).toContain('Paikkoja yhteensä 5')
+  expect(wrapper.get('nav a[href="/"]').text()).toBe('Kartta')
+  expect(wrapper.get('nav a[href="/admin/garages"]').text()).toBe('Hallit')
+  expect(wrapper.get('.garage-navigation a[href="/garages/1"]').text()).toBe('Keskustan pysäköinti')
+  expect(wrapper.findAll('.detail-tabs > button').map(button => button.text())).toEqual(['Tilannekuva', 'Simulaatio', 'Loki', 'Asetukset'])
+  await wrapper.get('#tab-simulation').trigger('click')
+  expect(wrapper.get('#panel-simulation').isVisible()).toBe(true)
+  await wrapper.get('#license-number').setValue('TOAST-1')
+  await wrapper.get('form.gate-form').trigger('submit')
+  await settle()
+  expect(wrapper.get('.success-toast[role="status"]').text()).toContain('Sisäänajo kirjattu')
+  wrapper.unmount()
+})
+
+
+it('shows an already parked car conflict as a toast without gate wording or duplicate inline error', async () => {
+  const { wrapper, api } = render()
+  await settle()
+  await wrapper.get('#tab-simulation').trigger('click')
+  api.enterLot.mockRejectedValueOnce(Object.assign(new Error('Toiminto ei onnistu nykyisessä tilanteessa.'), {
+    status: 409, problem: { code: 'VISIT_ALREADY_PARKED', gateOpened: false }
+  }))
+  await openLot(wrapper, 1)
+  await wrapper.get('.lot-card button').trigger('click')
+  await wrapper.get('.lot-entry-form').trigger('submit')
+  await settle()
+  const toast = wrapper.get('.error-toast[role="alert"]')
+  expect(toast.text()).toContain('Auto on jo pysäköitynä')
+  expect(toast.text()).toContain('Paikkaan ajoa ei kirjattu')
+  expect(wrapper.text()).not.toContain('Porttia ei avattu')
+  expect(wrapper.find('.notice-error').exists()).toBe(false)
+  wrapper.unmount()
+})
+
+
+it('opens only the clicked parking lot in a modal and removes its controls when closed', async () => {
+  const { wrapper } = render()
+  await settle()
+  await wrapper.get('#tab-simulation').trigger('click')
+  expect(wrapper.find('.lot-grid').exists()).toBe(false)
+  expect(wrapper.find('.lot-card').exists()).toBe(false)
+  await openLot(wrapper, 4)
+  expect(wrapper.get('.lot-modal').attributes('open')).toBeDefined()
+  expect(wrapper.get('#lot-modal-heading').text()).toBe('Paikka 4')
+  expect(wrapper.findAll('.lot-card')).toHaveLength(1)
+  await wrapper.get('[aria-label="Sulje paikan toiminnot"]').trigger('click')
+  expect(wrapper.get('.lot-modal').attributes('open')).toBeUndefined()
+  expect(wrapper.find('.lot-card').exists()).toBe(false)
+  wrapper.unmount()
 })
