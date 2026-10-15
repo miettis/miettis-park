@@ -11,6 +11,11 @@ public sealed class ParkingExceptionHandler(IProblemDetailsService problems) : I
         context.Response.StatusCode = error?.StatusCode ?? StatusCodes.Status500InternalServerError;
         var details = CreateProblem(error?.Code ?? "INTERNAL_ERROR", context.Response.StatusCode,
             error?.Message ?? "Toiminto epäonnistui. Yritä myöhemmin uudelleen.", error?.RequiresCustomerService == true);
+        if (error?.MinimumOccurredAt is { } minimum)
+        {
+            details.Extensions["minimumOccurredAt"] = minimum.ToUniversalTime();
+        }
+
         return await problems.TryWriteAsync(new ProblemDetailsContext { HttpContext = context, ProblemDetails = details });
     }
 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using MiettisPark.Api.Contracts;
 using MiettisPark.Api.Services;
 
@@ -41,14 +42,18 @@ public sealed class GaragesController(ParkingService service, GarageManagementSe
     public Task<List<ActiveParkingDto>> GetParkings(int garageId, CancellationToken cancellationToken) => service.GetActiveParkingsAsync(garageId, cancellationToken);
 
     [HttpPost("{garageId:int}/entries")]
-    public Task<EntryDto> EnterGarage(int garageId, LicenseRequest request, CancellationToken cancellationToken) => service.EnterGarageAsync(garageId, request.LicenseNumber, cancellationToken);
+    [ProducesResponseType(typeof(EntryDto), StatusCodes.Status200OK)]
+    public Task<EntryDto> EnterGarage(int garageId, LicenseRequest request, CancellationToken cancellationToken) => service.EnterGarageAsync(garageId, request.LicenseNumber, request.OccurredAt, cancellationToken);
 
     [HttpPost("{garageId:int}/lots/{lotId:int}/entries")]
-    public Task<LotEntryDto> EnterLot(int garageId, int lotId, LotEntryRequest request, CancellationToken cancellationToken) => service.EnterLotAsync(garageId, lotId, request.VisitId, cancellationToken);
+    [ProducesResponseType(typeof(LotEntryDto), StatusCodes.Status200OK)]
+    public Task<LotEntryDto> EnterLot(int garageId, int lotId, LotEntryRequest request, CancellationToken cancellationToken) => service.EnterLotAsync(garageId, lotId, request.VisitId, request.OccurredAt, cancellationToken);
 
     [HttpPost("{garageId:int}/lots/{lotId:int}/exit")]
-    public Task<LotExitDto> LeaveLot(int garageId, int lotId, CancellationToken cancellationToken) => service.LeaveLotAsync(garageId, lotId, cancellationToken);
+    [ProducesResponseType(typeof(LotExitDto), StatusCodes.Status200OK)]
+    public Task<LotExitDto> LeaveLot(int garageId, int lotId, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] LotExitRequest? request, CancellationToken cancellationToken) => service.LeaveLotAsync(garageId, lotId, request?.OccurredAt, cancellationToken);
 
     [HttpPost("{garageId:int}/exits")]
-    public Task<ReceiptDto> LeaveGarage(int garageId, LicenseRequest request, CancellationToken cancellationToken) => service.LeaveGarageAsync(garageId, request.LicenseNumber, cancellationToken);
+    [ProducesResponseType(typeof(ReceiptDto), StatusCodes.Status200OK)]
+    public Task<ReceiptDto> LeaveGarage(int garageId, LicenseRequest request, CancellationToken cancellationToken) => service.LeaveGarageAsync(garageId, request.LicenseNumber, request.OccurredAt, cancellationToken);
 }

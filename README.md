@@ -1,6 +1,6 @@
 # Miettis Park
 
-.NET-, PostgreSQL- ja Vue/Nuxt-pohjainen pysäköintihallisimulaatio rekrytoinnin ennakkotehtävään. Nykyinen v2 sisältää hallikartan `/`, hallikohtaisen porttisimulaation `/garages/{id}` sekä lukevan hallinnan ja halliylläpidon `/admin`-osiossa.
+.NET-, PostgreSQL- ja Vue/Nuxt-pohjainen pysäköintihallisimulaatio rekrytoinnin ennakkotehtävään. Nykyinen v3 sisältää tapahtumakohtaisen simulaatioajan ja suoran sisäänajon autokuvasta sekä v2:n hallikartan `/`, hallikohtaisen porttisimulaation `/garages/{id}` sekä lukevan hallinnan ja halliylläpidon `/admin`-osiossa.
 
 - [SPEC.md](SPEC.md): alkuperäinen toiminnallinen ja tekninen sopimus.
 - [STARTING-POINT.md](STARTING-POINT.md) ja [BACKLOG.md](BACKLOG.md): lähtöpohjan ja työpakettien historiallinen suunnitelma.
@@ -8,7 +8,7 @@
 - [VALIDATION.md](VALIDATION.md): paikallinen näyttö, testimatriisi ja myöhemmin ajettava ihmisen ympäristötarkistus.
 - [Käyttöliittymäluonnokset](ui-mocks/index.html): erillinen prototyyppi esimerkkidatalla, ei sovelluksen tietolähde.
 
-MVP:n toteutusjärjestys oli PARK-01 → PARK-02 → PARK-04 → PARK-03, myös admin. V2:n järjestys on PARK-V2-01 → PARK-V2-02 → PARK-V2-03; PARK-V2-01/02 toteuttivat ominaisuudet ja PARK-V2-03 kokoaa paikallisen hyväksyntänäytön ja luovutuksen. Se korvaa BACKLOGin vanhan adminin myöhempää milestonea koskevan rajauksen. Käyttäjän 14.10.2026 hyväksymä palveluriippumaton agenttihyväksyntä korvaa dokumenttien vanhat ulkoiset valmistumisportit; ei SPEC:n liiketoimintasääntöjä. Oikea selain, Docker ja PostgreSQL tarkistetaan myöhemmin ihmisen toimesta. Paikallinen hyväksyntä ei tarkoita ympäristöhyväksyntää tai tuotantovalmiutta.
+MVP:n toteutusjärjestys oli PARK-01 → PARK-02 → PARK-04 → PARK-03, myös admin. V2 toteutettiin järjestyksessä PARK-V2-01 → PARK-V2-02 → PARK-V2-03. V3:n järjestys on PARK-V3-01 → PARK-V3-02 → PARK-V3-03: tapahtuma-aika, kuvasisäänajo ja paikallinen loppuhyväksyntä. Se korvaa BACKLOGin vanhan adminin myöhempää milestonea koskevan rajauksen. Käyttäjän 14.10.2026 hyväksymä palveluriippumaton agenttihyväksyntä korvaa dokumenttien vanhat ulkoiset valmistumisportit; ei SPEC:n liiketoimintasääntöjä. Oikea selain, Docker ja PostgreSQL tarkistetaan myöhemmin ihmisen toimesta. Paikallinen hyväksyntä ei tarkoita ympäristöhyväksyntää tai tuotantovalmiutta.
 
 ## Toteutus ja arkkitehtuuri
 
@@ -98,11 +98,11 @@ Tunnisteet ovat `int`; Contracts\GarageContracts.cs on DTO-sopimus. MVP-reitit (
 | POST `/api/garages/{garageId}/lots/{lotId}/exit` | Erillinen vapautushavainto, nullable ParkingId ja missingParkingObservation. |
 | POST `/api/garages/{garageId}/exits` | `{licenseNumber}` → tallennettu kuitti, ajat, duration, numeerinen cost, EUR, gateOpened. |
 
-Enumit ovat JSON-merkkijonoja, kestot .NET TimeSpan -merkkijonoja ja ajat UTC-aikaleimoja. Palvelin normalisoi rekisterin Trim + invariant uppercase; tyhjä/yli 20 merkkiä hylätään. Pyyntö-DTO:t eivät anna asiakkaalle StartAt/EndAt/Cost-auktoriteettia. Virheet ovat turvallisia ProblemDetails-vastauksia: `code`, `gateOpened=false`, tarvittaessa `requiresCustomerService=true`. Syöte 400, puuttuva/toisen hallin tunniste 404, tilakonflikti 409; tuntematon virhe geneerinen INTERNAL_ERROR/500 ilman SQL-/stack trace -vuotoa.
+Enumit ovat JSON-merkkijonoja, kestot .NET TimeSpan -merkkijonoja ja ajat UTC-aikaleimoja. Palvelin normalisoi rekisterin Trim + invariant uppercase; tyhjä/yli 20 merkkiä hylätään. V3:ssa valinnainen occurredAt määrää tapahtuma-ajan vain Simulation:Enabled=true -tilassa; palvelin validoi aikajärjestyksen ja laskee hinnan. StartAt/EndAt/Cost eivät ole vapaasti asetettavia DTO-kenttiä. Virheet ovat turvallisia ProblemDetails-vastauksia: `code`, `gateOpened=false`, tarvittaessa `requiresCustomerService=true`. Syöte 400, puuttuva/toisen hallin tunniste 404, tilakonflikti 409; tuntematon virhe geneerinen INTERNAL_ERROR/500 ilman SQL-/stack trace -vuotoa.
 
 ### Hinnoittelu ja invariantit
 
-- ParkingFeeCalculator summaa decimal-eurot alkavina tick-tarkkoina yksikköinä. Ensimmäiset 3 h: 0,50 €/alkava 10 min; sen jälkeen 0,30 €. Nolla = 0 €, 3 h = 9,00 €, 3 h + 1 tick = 9,30 €. TimeProvider määrää palvelinajat; ulosajossa Cost/EndAt/ClosedAt tallennetaan kerran. Hinnasto on ajon aikana kiinteä.
+- ParkingFeeCalculator summaa decimal-eurot alkavina tick-tarkkoina yksikköinä. Ensimmäiset 3 h: 0,50 €/alkava 10 min; sen jälkeen 0,30 €. Nolla = 0 €, 3 h = 9,00 €, 3 h + 1 tick = 9,30 €. Tapahtuma-aika on kerran ratkaistu occurredAt tai TimeProviderin nykyhetki; ulosajossa Cost/EndAt/ClosedAt tallennetaan kerran. Hinnasto on ajon aikana kiinteä.
 - Visit ja Parking ovat itsenäisiä. VisitId on valinnainen; annettu yhteys validoidaan samassa transaktiossa aktiiviseksi saman hallin käynniksi ilman toista aktiivista Parkingia. Ulosajo/keskeytys **ei vapauta paikkaa**. Vain LeaveLot sulkee Parkingin ja vapauttaa paikan. Paikanvaihto ei nollaa Visitin laskutusta.
 - Saatavuus perustuu Free/Occupied/Unknown-paikkatiloihin, ei Visit-määrään. Täysi halli ei estä sisäänajohavaintoa. Occupied/Unknown ei ole valittavissa, mutta erillinen vapautushavainto toimii myös ilman luotettavaa käyntiyhteyttä.
 - ParkingWriteTransaction aloittaa PostgreSQL ReadCommitted -transaktion: parametrisoitu hallirivin FOR UPDATE ennen paikan lukkoa/tarkistuksia. Monipaikkakomentojen mahdollinen järjestys on id-järjestys. Hallilukko serialisoi saman hallin kirjoitukset; partial Active -uniikki-indeksit/FK/lifecycle ovat viimeinen suoja. Tunnettu unique-konflikti muunnetaan 409:ksi transaktion purkamisen jälkeen, muut DB-viat eivät muutu domain-konflikteiksi.
@@ -203,6 +203,41 @@ Jatkajan sopimukset: nykyiset ylläpito-/simulaatioreitit ja DTO:t yllä; Layout
 
 Oikeat selain/WebGL/kartta-, Docker/PostgreSQL/restart- ja kahden selaimen proxy-SSE-ajot ovat **AJAMATTA**, myöhemmälle ihmiselle; eivät agentin submission-portteja. Ihmisen lopullinen ympäristöhyväksyntä, milestone-release, SemVer-tagi ja image-julkaisu ovat erillisiä. Ei manuaalista Git-finalisointia, julkaisua tai deployta. Tunnetut npm-audit/build-varoitukset on kirjattu, ei yleistä upgrade-urakkaa tai turvallisuushyväksyntäväitettä.
 
-## V3-suunnitelma
+## V3: toteutettu tapahtuma-aika ja kuvasisäänajo
 
-Autokuvasta tunnistettu rekisteri kirjaa sisäänajon ilman manuaalista hyväksyntää; simulaatiotapahtumille voi valita ajan. [SPEC-V3.md](SPEC-V3.md) ja [BACKLOG-V3.md](BACKLOG-V3.md). Kyse on suunnitelmasta; v3-työitemeitä tai toteutusta ei luotu tällä toimeksiannolla.
+Autokuvasta tunnistettu rekisteri kirjaa sisäänajon ilman manuaalista hyväksyntää; simulaatiotapahtumille voi valita ajan. [SPEC-V3.md](SPEC-V3.md) ja [BACKLOG-V3.md](BACKLOG-V3.md). V3-01/02 ovat toteutettuina nykyisessä koodissa; V3-03 kokoaa paikallisen hyväksynnän. SPEC-/BACKLOG-tiedostot ovat alkuperäinen sopimus; ajantasainen toteutus ja näyttöraja ovat tässä ja VALIDATIONissa.
+
+## V3-01: tapahtumakohtainen simulaatioaika
+
+Hallin yhteinen **Tapahtuman aika** koskee käsin tehtävää sisäänajoa, paikalle ajoa, paikan vapautusta ja ulosajoa. Tyhjä kenttä käyttää palvelimen nykyhetkeä. Oma aika annetaan paikallisena sekuntitarkkuudella; näkyvä aikavyöhyke/valitun hetken UTC-offset tekee muunnoksen selväksi. Nykyhetki tyhjentää kentän. +10 min/+1 h/+3 h siirtävät valittua aikaa (tyhjästä selaimen nykyhetkeä), eivät lähetä komentoa. Kenttä säilyy SSE/resync-päivityksissä ja lukitaan lähetyksen ajaksi. Kuitti tulee tallennetusta Visitistä, ei selaimen kellosta.
+
+API:n neljä pyyntöä hyväksyvät valinnaisen `occurredAt`-kentän (ISO 8601, `Z` tai eksplisiittinen `±HH:mm`-offset). Puuttuva/null arvo toimii kuten aiemmin; myös `{}`-paikkasisäänajo ja bodyton paikan exit säilyvät. Vastauksissa `effectiveOccurredAt` on UTC-aika, myös Duplicate/no-opissa; Duplicate `startAt` on edelleen alkuperäisen käynnin alku. Esimerkki: `{"licenseNumber":"ABC-123","occurredAt":"2026-10-15T13:00:00+03:00"}`.
+
+`Simulation:Enabled` on demon appsettingsissä **true**, mutta `SimulationOptions`-oletus on turvallisesti **false**. Ympäristössä sen voi poistaa käytöstä: `Simulation__Enabled=false`. Tällöin eksplisiittinen aika palauttaa 400 `SIMULATION_TIME_DISABLED`, normaali puuttuvan ajan polku toimii. Tämä ei ole käyttöoikeusraja eikä korvaa pääsynhallintaa. V3 täydentää SPEC:n aiempaa vain palvelinaikaan perustuvaa rajaa vain simulaatiotilassa.
+
+Menneet/tulevat ajat ovat sallittuja. Saman hallin/normalisoidun rekisterin Visit-historia sekä saman paikan Parking-historia asettavat alarajan: aika ei saa edeltää tallennettuja StartAt/EndAt/ClosedAt-arvoja. Optional VisitId:n on edelleen oltava nykytilassa aktiivinen, saman hallin ja ilman muuta aktiivista Parkingia; paikan käyttö ei saa edeltää Visit.StartAt:a. Rikkomus palauttaa 409 `EVENT_TIME_CONFLICT` ja UTC `minimumOccurredAt`: mitään ei tallenneta eikä SSE:tä julkaista. Yhtäsuuret ajat/nollakesto sallitaan. Eri autot/hallit/paikat eivät jaa aikarajaa. Visitin päättyminen/keskeytys ei sulje Parkingia tai vapauta paikkaa. Globaalia kellon säätöä, replayta tai historian korjausta ei ole.
+
+**Nykyinen kuvasisäänajon palvelusopimus (toteutettu V3-02:ssa):** `ParkingService.ResolveOccurredAt(DateTimeOffset?)` ratkaisee/validoi ajan kerran ennen odotusta. Neljän palvelukomennon uusi overload ottaa `occurredAt` ennen CancellationTokenia; vanha overload säilyy. Kuvapyyntö ratkaisee ajan **ennen tunnistusta**, validoi hallin ennen provideria ja kutsuu `EnterGarageAtAsync(garageId, licenseNumber, effectiveOccurredAt, token)` samalla jo validoidulla ajalla tunnistuksen jälkeen, ilman ulkoista kutsua transaktion sisällä. Tämä trusted service -ydin ei itse tarkista Simulation-asetusta uudelleen eikä lue kelloa. Nykytila/historia tarkistetaan sen WriteAsync-transaktiossa hallilukon jälkeen: `ValidateVisitHistoryAsync`; paikoissa `ValidateParkingHistoryAsync` halli-ennen-paikkaa-lukituksen sisällä. Tekninen SSE/timeout/lokikello pysyy oikeana. Skeemamuutosta ei tarvittu. Kuvavalinta/raahaus/OpenRouter on toteutettu alla kuvatulla tavalla.
+
+
+## Sisäänajo kuvasta (PARK-V3-02)
+
+Porttinäkymän tiedostovalinta ja pudotusalue hyväksyvät yhden JPEG-/PNG-kuvan (1 tavu..8 MiB). Esikatselu ei lähetä kuvaa: **Lue kilpi ja aja sisään** lähettää sen ulkoiselle OpenRouter-/mallipalvelulle. Yksi yksiselitteinen rekisteri kirjaa sisään saman pyynnön aikana ilman hyväksymismodaalia. Käsinsyöttö säilyy rinnalla. Valittu tapahtuma-aika ja halli otetaan snapshotiksi; palvelinaika ratkaistaan kerran ennen tunnistusta. Tunnistus ei varaa tai vapauta pysäköintipaikkaa, eikä täysi halli estä sisäänajoa.
+
+Backend-asetukset: `PlateRecognition:ApiKey` ja `PlateRecognition:Model` (ympäristömuuttujat `PlateRecognition__ApiKey` / `PlateRecognition__Model`). Säilytä avain salaisuusasetuksena, älä lähdekoodissa. Mallille ei ole runtime-oletusta. Virallisen malliluettelon mukaan `openai/gpt-4o-mini` tukee kuvaa ja structured outputs -parametreja; tämä on konfiguroitava esimerkkitunniste, ei todistus rekisterikilpien tarkkuudesta. Puuttuva/virheellinen konfiguraatio antaa kuvapolussa 503; sovellus, käsinpolku ja offline OpenAPI toimivat ilman avainta.
+
+`POST /api/garages/{garageId}/entries/from-image`: multipart-kentät `image` (yksi tiedosto) ja valinnainen `occurredAt` (ISO 8601 Z/offset). 200 palauttaa EntryDto-kentät ja `recognizedLicenseNumber`; `effectiveOccurredAt`, `visitId` ja `outcome` (`Entry`, `Duplicate`, `RecoveredMissingExit`) ovat lopullisen sisäänajon tietoja. Virheet ovat ProblemDetails + `code` + `gateOpened=false`; 409 sisältää nykyisen `minimumOccurredAt`-sopimuksen.
+
+Rajat, virhekoodit, pakettivalinta, viralliset lähteet ja myöhemmät ympäristötarkistukset: [VALIDATION.md](VALIDATION.md). Paikallisen hyväksynnän komennot: `node scripts\openapi.mjs`, `dotnet build MiettisPark.slnx -c Release`, `dotnet test MiettisPark.slnx -c Release`, `npm run check`. Kuvan tunnistuksen toteutunut tarkkuus ja kustannus eivät ole paikallisten stub-testien todistamia.
+
+## PARK-V3-03: paikallinen loppuhyväksyntä ja luovutus (15.10.2026)
+
+`V3AcceptanceTests` lähettää oikean pienen PNG:n multipart-API:in, käyttää vain tunnistuksen testituplaa ja kulkee aidon ImageEntryService/ParkingServicen kautta suoraan sisään, erilliseen VisitId=null-paikkahavaintoon, vapautukseen ja myöhempään ulosajoon. Palvelimen kuitti ja tuore DbContext varmentavat UTC-ajat, lifecycle-tilat ja tallennetut decimal-hinnat 3 h / 3 h + 1 s / 4 h = 9,00 / 9,30 / 10,80 €. Käynnin ja paikan riippumattomuus varmennetaan myös välivaiheissa; domainia tai kuittia ei mockata.
+
+Tämän itemin workspace-ajot: **249 backend-testiä, 0 failed / 0 skipped**, **84 DOM/client-testiä**, puhdas npm ci/lint/typecheck/staattinen build sekä offline OpenAPI (sopimus ennallaan). Lopullisen revision auktoritatiiviset backend-build/backend-tests/frontend-checks-raportit ja checklist/submission ovat PullPotentialissa; workspace-luvut eivät korvaa niitä. Vaatimus–testi–näyttöraja ja erillinen AJAMATTA-runbook ovat VALIDATIONissa.
+
+Kuva käsitellään muistissa vain pyynnön ajan ja lähetetään ulkoiselle OpenRouter-/mallipalvelulle; sovellus ei säilytä kuvaa tai raakavastausta eikä lokita kuvaa/base64:ää/avainta. Providerin omia säilytysehtoja ei tunneta tämän paikallisen näytön perusteella eikä nollasäilytystä luvata. Backend dekoodaa JPEG/PNG-sisällön kokonaan: enintään 8 MiB, 8192/akseli, 16 miljoonaa pikseliä ja yksi kehys. Multipart-overhead on rajattu 64 KiB:iin. Kaksi rinnakkaista kuvaoperaatiota/instanssi, 45 s kokonaisbudjetti ja 30 s provider-timeout; native-dekoodauksen cancellation ei ole kova CPU-/RSS-eristys. Tarkat muistirajat ja virhekoodit: VALIDATION.
+
+Default test run ei tarvitse avainta, maksullista inference-kutsua, PostgreSQL:ää, Dockeria tai selainta. Oikean mallin 15–20 autokuvan kokeilu on vain eksplisiittinen ihmisen opt-in-runbook: erillinen toimeksianto, avain ja konfiguroitu malli, ei oletusajon testi tai skipattu onnistuminen. Mallin tarkkuutta tai fyysisen portin turvallisuutta ei luvata testituplan perusteella. PostgreSQL-lukot/rollback/restart, Docker/native-runtime, oikea selain/kartta/aikavyöhyke/proxy-SSE ovat AJAMATTA myöhempää ihmisen tarkistusta varten, eivät paikallisen valmistumisen portteja.
+
+Integraation lähtö: workitem/1125 ja milestone/61 osoittivat työn alussa committiin 7f88058 (V3-02, PR #14), sitä edelsi 9045aab (V3-01, PR #13). V3-03:n integraatio tapahtuu PullPotentialin finalisoinnissa, eikä mergeä väitetä vielä tehdyksi. Ei tuotantokoodin, skeeman, riippuvuuksien tai hinnaston muutosta tässä itemissä. Ihmisen ympäristöhyväksyntä, release, tagi, image-julkaisu ja deploy ovat erillisiä; niitä ei tehty.

@@ -4,14 +4,50 @@ import GarageLayoutView from './GarageLayoutView.vue'
 import { formatGarageOccupancy } from '../utils/occupancy'
 import AvailabilitySummary from '../components/AvailabilitySummary.vue'
 import GatePanel from '../components/GatePanel.vue'
+import ImageEntryPanel from '../components/ImageEntryPanel.vue'
 import LotCard from '../components/LotCard.vue'
+import EventTimeInput from '../components/EventTimeInput.vue'
+import { formatUtcDateTime, toEventTime } from '../utils/eventTime'
 import { useGarageDashboard } from '../composables/useGarageDashboard'
 
 const props = defineProps<{ garageId: number | null }>()
 const selectedLotId = ref<number | null>(null)
 const selectionNotice = ref('')
-const { layout, fresh, connected, selectedGarage, availability, visits, receipt, notice, loading, submitting, initialized, error, refresh, enterGarage, exitGarage, enterLot, exitLot } = useGarageDashboard(undefined, toRef(props, 'garageId'))
+const eventTime = ref('')
+const eventTimeResult = computed(() => toEventTime(eventTime.value))
+const eventTimeValid = computed(() => eventTimeResult.value.error === null)
+const { layout, fresh, connected, selectedGarage, availability, visits, receipt, notice, loading, submitting, initialized, error, refresh, enterGarage, enterGarageFromImage, exitGarage, enterLot, exitLot } = useGarageDashboard(undefined, toRef(props, 'garageId'))
 const occupancy = computed(() => availability.value ? formatGarageOccupancy(availability.value) : '')
+
+function submitEntry(licenseNumber: string): void {
+  if (!eventTimeValid.value) return
+  const occurredAt = eventTimeResult.value.occurredAt
+  void enterGarage(licenseNumber, occurredAt)
+}
+
+function submitImage(file: File): void {
+  if (!eventTimeValid.value) return
+  const occurredAt = eventTimeResult.value.occurredAt
+  void enterGarageFromImage(file, occurredAt)
+}
+
+function submitExit(licenseNumber: string): void {
+  if (!eventTimeValid.value) return
+  const occurredAt = eventTimeResult.value.occurredAt
+  void exitGarage(licenseNumber, occurredAt)
+}
+
+function submitLotEntry(lotId: number, visitId: number | null): void {
+  if (!eventTimeValid.value) return
+  const occurredAt = eventTimeResult.value.occurredAt
+  void enterLot(lotId, visitId, occurredAt)
+}
+
+function submitLotExit(lotId: number): void {
+  if (!eventTimeValid.value) return
+  const occurredAt = eventTimeResult.value.occurredAt
+  void exitLot(lotId, occurredAt)
+}
 watch(() => props.garageId, () => { selectedLotId.value = null; selectionNotice.value = '' })
 watch(layout, value => {
   if (selectedLotId.value !== null && !value?.lots.some(lot => lot.id === selectedLotId.value)) {
@@ -38,7 +74,7 @@ async function selectLot(id: number) {
 }
 
 function timeLabel(value: string): string {
-  return new Intl.DateTimeFormat('fi-FI', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
+  return new Intl.DateTimeFormat('fi-FI', { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(value))
 }
 
 function durationLabel(value: string): string {
@@ -49,7 +85,7 @@ function durationLabel(value: string): string {
   const hours = Number(match[1] ?? 0) * 24 + Number(match[2])
   const minutes = Number(match[3])
   const seconds = Number(match[4])
-  return hours ? `${hours} h ${minutes} min` : minutes ? `${minutes} min` : `${seconds} s`
+  return hours ? `${hours} h ${minutes} min ${seconds} s` : minutes ? `${minutes} min ${seconds} s` : `${seconds} s`
 }
 function money(value: number, currency: string): string {
   return new Intl.NumberFormat('fi-FI', { style: 'currency', currency }).format(value)
@@ -110,11 +146,13 @@ function money(value: number, currency: string): string {
           Halleja ei löytynyt.
         </div>
         <template v-if="availability">
+          <EventTimeInput v-model="eventTime" :disabled="submitting" />
           <div v-if="notice" class="notice" :class="`notice-${notice.kind}`" :role="notice.kind === 'error' || notice.kind === 'warning' ? 'alert' : 'status'" aria-live="polite">
             <span class="notice-icon" aria-hidden="true">{{ notice.kind === 'error' || notice.kind === 'warning' ? '!' : notice.kind === 'success' ? '✓' : 'i' }}</span>
             <div>
               <strong>{{ notice.kind === 'error' ? 'Toimintoa ei voitu suorittaa' : notice.kind === 'warning' ? 'Käynnin palautus vaatii huomiota' : 'Tilannepäivitys' }}</strong>
               <p>{{ notice.message }}</p>
+              <p v-if="notice.minimumOccurredAt">Aikaisintaan {{ formatUtcDateTime(notice.minimumOccurredAt) }} ({{ notice.minimumOccurredAt }}).</p>
               <code v-if="notice.code">{{ notice.code }}</code>
               <p v-if="notice.gateOpened === false" class="service-note">Porttia ei avattu.</p>
               <p v-if="notice.requiresCustomerService" class="service-note">Ota yhteys asiakaspalveluun.</p>
@@ -130,9 +168,11 @@ function money(value: number, currency: string): string {
                 :key="props.garageId ?? 'invalid'"
                 :submitting="submitting || loading"
                 :full="availability.isFull"
-                @enter="enterGarage"
-                @exit="exitGarage"
+                :event-time-valid="eventTimeValid"
+                @enter="submitEntry"
+                @exit="submitExit"
               />
+              <ImageEntryPanel :key="props.garageId ?? 'invalid'" :occurred-at="eventTimeResult.occurredAt" :submitting="submitting || loading" :event-time-valid="eventTimeValid" @submit="submitImage" />
               <section class="panel visit-panel" aria-labelledby="visits-heading">
                 <div class="panel-heading">
                   <div><p class="eyebrow">AKTIIVISET</p><h2 id="visits-heading">Hallikäynnit</h2></div>
@@ -169,8 +209,9 @@ function money(value: number, currency: string): string {
                 :lot="lot"
                 :visits="visits"
                 :submitting="submitting || loading"
-                @enter="enterLot"
-                @exit="exitLot"
+                :event-time-valid="eventTimeValid"
+                @enter="submitLotEntry"
+                @exit="submitLotExit"
               />
             </div>
           </section>
@@ -185,6 +226,7 @@ function money(value: number, currency: string): string {
                 <div><dt>Rekisterinumero</dt><dd>{{ receipt.licenseNumber }}</dd></div>
                 <div><dt>Saapuminen</dt><dd>{{ timeLabel(receipt.startAt) }}</dd></div>
                 <div><dt>Poistuminen</dt><dd>{{ timeLabel(receipt.endAt) }}</dd></div>
+                <div><dt>Tapahtuma-aika</dt><dd>{{ timeLabel(receipt.effectiveOccurredAt) }}</dd></div>
                 <div><dt>Hallikäynnin kesto</dt><dd>{{ durationLabel(receipt.duration) }}</dd></div>
               </dl>
               <div class="receipt-total"><span>Yhteensä</span><strong>{{ money(receipt.cost, receipt.currency) }}</strong></div>

@@ -1,4 +1,4 @@
-﻿import { mount, flushPromises } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createGarageEvents, createResync, garageEvents } from './garageEvents'
@@ -28,8 +28,8 @@ function stub() {
     getGarages: vi.fn(async () => [1, 2].map(id => ({ id, name: `Halli ${id}`, address: 'Katu', latitude: null, longitude: null, capacity: 1, occupiedLots: 0, freeLots: 1, unknownLots: 0, isFull: false }))),
     getLayout: vi.fn(async (id: number) => layout(id)),
     getAvailability: vi.fn(), getActiveVisits: vi.fn(async () => []), getActiveParkings: vi.fn(async () => []),
-    enterGarage: vi.fn(async () => ({ visitId: 1, licenseNumber: 'ABC', startAt: '2026-10-14T10:00:00Z', outcome: 'Entry' as const, gateOpened: true })),
-    exitGarage: vi.fn(), enterLot: vi.fn(), exitLot: vi.fn(), createGarage: vi.fn(), updateGarage: vi.fn(), saveLayout: vi.fn()
+    enterGarage: vi.fn(async () => ({ visitId: 1, licenseNumber: 'ABC', startAt: '2026-10-14T10:00:00Z', outcome: 'Entry' as const, gateOpened: true, effectiveOccurredAt: '2026-10-14T10:00:00Z' })),
+    exitGarage: vi.fn(), enterGarageFromImage: vi.fn(), enterLot: vi.fn(), exitLot: vi.fn(), createGarage: vi.fn(), updateGarage: vi.fn(), saveLayout: vi.fn()
   }
 }
 beforeEach(() => { Source.instances = []; vi.stubGlobal('EventSource', Source) })
@@ -98,23 +98,23 @@ describe('shared SSE invalidation and race-safe reads', () => {
 
   it('uses each route ID for gate, lot commands and receipts in both garages', async () => {
     const api = stub()
-    api.exitGarage.mockImplementation(async (id: number) => ({ licenseNumber: 'CAR', startAt: '2026-10-14T10:00:00Z', endAt: '2026-10-14T10:01:00Z', duration: '00:01:00', cost: id, currency: 'EUR' }))
+    api.exitGarage.mockImplementation(async (id: number) => ({ licenseNumber: 'CAR', startAt: '2026-10-14T10:00:00Z', endAt: '2026-10-14T10:01:00Z', duration: '00:01:00', cost: id, currency: 'EUR', effectiveOccurredAt: '2026-10-14T10:01:00Z' }))
     const wrapper = mount(GarageSimulation, { props: { garageId: 1 }, global: { provide: { [garageApiKey]: api } } })
     for (const id of [1, 2]) {
       await wrapper.setProps({ garageId: id }); await flushPromises()
       await wrapper.get('nav button:first-child').trigger('click')
       await wrapper.get('#license-number').setValue('CAR')
       await wrapper.get('.gate-form').trigger('submit'); await flushPromises()
-      expect(api.enterGarage).toHaveBeenLastCalledWith(id, 'CAR')
+      expect(api.enterGarage).toHaveBeenLastCalledWith(id, 'CAR', null)
       await wrapper.get('nav button:nth-child(2)').trigger('click')
       await wrapper.get('.lot-card button').trigger('click')
       await wrapper.get('.lot-entry-form').trigger('submit'); await flushPromises()
-      expect(api.enterLot).toHaveBeenLastCalledWith(id, id * 10, null)
+      expect(api.enterLot).toHaveBeenLastCalledWith(id, id * 10, null, null)
       await wrapper.get('nav button:first-child').trigger('click')
       await wrapper.get('.segmented button:nth-child(2)').trigger('click')
       await wrapper.get('#license-number').setValue('CAR')
       await wrapper.get('.gate-form').trigger('submit'); await flushPromises()
-      expect(api.exitGarage).toHaveBeenLastCalledWith(id, 'CAR')
+      expect(api.exitGarage).toHaveBeenLastCalledWith(id, 'CAR', null)
       expect(wrapper.get('.receipt-total').text()).toContain(String(id))
       Source.instances[0]!.emit(id); await flushPromises()
       expect(wrapper.find('.receipt-panel').exists()).toBe(true)
@@ -129,8 +129,10 @@ describe('shared SSE invalidation and race-safe reads', () => {
     const source = Source.instances[0]!
     source.onopen?.(); await flushPromises()
     await wrapper.get('#license-number').setValue('DRAFT-123')
+    await wrapper.get('#event-time').setValue('2026-10-14T13:30:45')
     source.emit(); await flushPromises()
     expect((wrapper.get('#license-number').element as HTMLInputElement).value).toBe('DRAFT-123')
+    expect((wrapper.get('#event-time').element as HTMLInputElement).value).toBe('2026-10-14T13:30:45.000')
     await wrapper.get('nav button:nth-child(2)').trigger('click')
     await wrapper.get('.layout-cell').trigger('click')
     source.emit(); await flushPromises()
@@ -144,6 +146,7 @@ describe('shared SSE invalidation and race-safe reads', () => {
     expect(wrapper.findAll('.lot-card')).toHaveLength(1)
     await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
     expect(wrapper.text()).toContain('Reaaliaikainen')
+    expect((wrapper.get('#event-time').element as HTMLInputElement).value).toBe('2026-10-14T13:30:45.000')
     wrapper.unmount()
   })
 
@@ -217,4 +220,60 @@ describe('shared SSE invalidation and race-safe reads', () => {
     expect(wrapper.text()).toBe('Halli 2')
     wrapper.unmount()
   })
-})
+  it('keeps image preview and drafts during SSE, freezes time and shares the command lock', async () => {
+    const api = stub(), pending = deferred<unknown>()
+    api.enterGarageFromImage.mockReturnValueOnce(pending.promise)
+    const revoke = vi.fn()
+    vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:preview'), revokeObjectURL: revoke })
+    const wrapper = mount(GarageSimulation, { props: { garageId: 1 }, global: { provide: { [garageApiKey]: api } } })
+    await flushPromises()
+    const image = new File(['image'], 'car.png', { type: 'image/png' })
+    Object.defineProperty(wrapper.get('#plate-image').element, 'files', { configurable: true, value: [image] })
+    await wrapper.get('#plate-image').trigger('change')
+    await wrapper.get('#license-number').setValue('DRAFT')
+    await wrapper.get('#event-time').setValue('2026-10-14T13:00:00')
+    Source.instances[0]!.emit(); await flushPromises()
+    expect(wrapper.get('.image-preview').attributes('src')).toBe('blob:preview')
+    expect((wrapper.get('#license-number').element as HTMLInputElement).value).toBe('DRAFT')
+    expect(api.enterGarageFromImage).not.toHaveBeenCalled()
+    await wrapper.get('.image-entry-panel button').trigger('click')
+    const time = api.enterGarageFromImage.mock.calls[0]![2]
+    expect(new Date(time).getTime()).toBe(new Date('2026-10-14T13:00:00').getTime())
+    expect((wrapper.get('#event-time').element as HTMLInputElement).disabled).toBe(true)
+    expect((wrapper.get('#plate-image').element as HTMLInputElement).disabled).toBe(true)
+    await wrapper.get('.gate-form').trigger('submit')
+    expect(api.enterGarage).not.toHaveBeenCalled()
+    pending.resolve({ visitId: 44, licenseNumber: 'ABC', recognizedLicenseNumber: 'ABC', outcome: 'Duplicate', startAt: time, effectiveOccurredAt: time, gateOpened: true })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Tunnistettu rekisteri: ABC')
+    expect(wrapper.text()).toContain('VisitId: 44')
+    expect(wrapper.text()).toContain('Alkuperäinen alkamisaika')
+    expect(wrapper.find('.image-preview').exists()).toBe(true)
+    wrapper.unmount()
+    expect(revoke).toHaveBeenCalledWith('blob:preview')
+  })
+
+  it('discards old garage image results and offers retry/manual input on provider failure', async () => {
+    const api = stub(), pending = deferred<unknown>()
+    api.enterGarageFromImage.mockReturnValueOnce(pending.promise)
+    vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:preview'), revokeObjectURL: vi.fn() })
+    const wrapper = mount(GarageSimulation, { props: { garageId: 1 }, global: { provide: { [garageApiKey]: api } } })
+    await flushPromises()
+    async function chooseAndSubmit() {
+      Object.defineProperty(wrapper.get('#plate-image').element, 'files', { configurable: true, value: [new File(['image'], 'car.png', { type: 'image/png' })] })
+      await wrapper.get('#plate-image').trigger('change')
+      await wrapper.get('.image-entry-panel button').trigger('click')
+    }
+    await chooseAndSubmit()
+    await wrapper.setProps({ garageId: 2 }); await flushPromises()
+    pending.resolve({ visitId: 1, licenseNumber: 'OLD', recognizedLicenseNumber: 'OLD', startAt: '2026-10-14T10:00:00Z', effectiveOccurredAt: '2026-10-14T10:00:00Z', outcome: 'Entry', gateOpened: true })
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Tunnistettu rekisteri: OLD')
+    expect(wrapper.find('.image-preview').exists()).toBe(false)
+    api.enterGarageFromImage.mockRejectedValueOnce(new Error('provider error'))
+    await chooseAndSubmit(); await flushPromises()
+    expect(wrapper.text()).toContain('käsinsyöttöä')
+    expect(wrapper.find('.image-preview').exists()).toBe(true)
+    expect((wrapper.get('.image-entry-panel button').element as HTMLButtonElement).disabled).toBe(false)
+    wrapper.unmount()
+  })})

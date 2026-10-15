@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-const props = defineProps<{ submitting: boolean, full: boolean }>()
+const props = defineProps<{ submitting: boolean, full: boolean, eventTimeValid: boolean }>()
 const emit = defineEmits<{ enter: [licenseNumber: string], exit: [licenseNumber: string] }>()
 const mode = ref<'entry' | 'exit'>('entry')
 const licenseNumber = ref('')
@@ -50,7 +50,7 @@ function submit(): void {
         placeholder="esim. ABC-123"
         required
       >
-      <button class="primary-button" type="submit" :disabled="props.submitting || !licenseNumber.trim()">
+      <button class="primary-button" type="submit" :disabled="props.submitting || !licenseNumber.trim() || !props.eventTimeValid">
         {{ props.submitting ? 'Tallennetaan…' : mode === 'entry' ? 'Kirjaa sisäänajo →' : 'Kirjaa ulosajo →' }}
       </button>
     </form>

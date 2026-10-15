@@ -1,7 +1,8 @@
 namespace MiettisPark.Api.Services;
 
-public sealed class ParkingError(string code, int statusCode, string message, bool requiresCustomerService = false) : Exception(message)
+public sealed class ParkingError(string code, int statusCode, string message, bool requiresCustomerService = false, DateTimeOffset? minimumOccurredAt = null) : Exception(message)
 {
+    public DateTimeOffset? MinimumOccurredAt { get; } = minimumOccurredAt;
     public string Code { get; } = code;
     public int StatusCode { get; } = statusCode;
     public bool RequiresCustomerService { get; } = requiresCustomerService;

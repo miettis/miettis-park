@@ -6,6 +6,7 @@ const props = defineProps<{
   lot: LotDto
   visits: ActiveVisitDto[]
   submitting: boolean
+  eventTimeValid: boolean
 }>()
 const emit = defineEmits<{
   enter: [lotId: number, visitId: number | null]
@@ -29,7 +30,7 @@ watch(() => props.visits, (visits) => {
 })
 
 function enter(): void {
-  if (!canEnter() || props.submitting) {
+  if (!canEnter() || props.submitting || !props.eventTimeValid) {
     return
   }
   emit('enter', props.lot.id, visitId.value ? Number(visitId.value) : null)
@@ -59,7 +60,7 @@ function enter(): void {
           </option>
         </select>
         <div class="lot-form-actions">
-          <button class="primary-button" type="submit" :disabled="props.submitting">Vahvista</button>
+          <button class="primary-button" type="submit" :disabled="props.submitting || !props.eventTimeValid">Vahvista</button>
           <button class="text-button" type="button" @click="expanded = false">Peruuta</button>
         </div>
       </form>
@@ -68,7 +69,7 @@ function enter(): void {
       v-else
       class="secondary-button lot-action"
       type="button"
-      :disabled="props.submitting"
+      :disabled="props.submitting || !props.eventTimeValid"
       @click="emit('exit', props.lot.id)"
     >
       Simuloi paikan vapautuminen
