@@ -150,3 +150,21 @@ export interface ImageEntryDto {
   gateOpened: boolean
   recognizedLicenseNumber: string
 }
+
+export interface VisitHistoryDto {
+  visitId: number
+  licenseNumber: string
+  startAt: string
+  endAt: string | null
+  closedAt: string | null
+  status: 'Active' | 'Completed' | 'Interrupted'
+  closureReason: string | null
+  cost: number | null
+}
+export interface FeeTierDto {
+  amount: number
+  perUnit: string
+  startDuration: string
+  endDuration: string | null
+}
+export interface PricingDto { garageId: number, tiers: FeeTierDto[] }

@@ -8,7 +8,7 @@ defineProps<{ availability: AvailabilityDto }>()
   <section class="stats" aria-label="Hallin saatavuus">
     <article class="stat-card stat-primary">
       <span>Vapaita paikkoja</span>
-      <strong>{{ availability.freeLots }} <small>/ {{ availability.capacity }}</small></strong>
+      <strong>{{ availability.freeLots }}</strong>
       <span>{{ availability.isFull ? 'Halli on täynnä' : 'Tilaa pysäköidä' }}</span>
     </article>
     <article class="stat-card">

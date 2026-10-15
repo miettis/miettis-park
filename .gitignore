@@ -14,3 +14,5 @@ artifacts/
 TestResults/
 *.user
 *.suo
+
+/src/MiettisPark.Api/appsettings.Development.json

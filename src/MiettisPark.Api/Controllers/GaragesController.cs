@@ -41,6 +41,28 @@ public sealed class GaragesController(ParkingService service, GarageManagementSe
     [HttpGet("{garageId:int}/parkings/active")]
     public Task<List<ActiveParkingDto>> GetParkings(int garageId, CancellationToken cancellationToken) => service.GetActiveParkingsAsync(garageId, cancellationToken);
 
+    [HttpGet("{garageId:int}/visits")]
+    public Task<List<VisitHistoryDto>> GetVisitHistory(
+        int garageId,
+        CancellationToken cancellationToken,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 50)
+    {
+        return management.GetVisitHistoryAsync(garageId, skip, take, cancellationToken);
+    }
+
+    [HttpGet("{garageId:int}/pricing")]
+    public Task<PricingDto> GetPricing(int garageId, CancellationToken cancellationToken)
+    {
+        return management.GetPricingAsync(garageId, cancellationToken);
+    }
+
+    [HttpPut("{garageId:int}/pricing")]
+    public Task<PricingDto> SavePricing(int garageId, PricingRequest request, CancellationToken cancellationToken)
+    {
+        return management.SavePricingAsync(garageId, request, cancellationToken);
+    }
+
     [HttpPost("{garageId:int}/entries")]
     [ProducesResponseType(typeof(EntryDto), StatusCodes.Status200OK)]
     public Task<EntryDto> EnterGarage(int garageId, LicenseRequest request, CancellationToken cancellationToken) => service.EnterGarageAsync(garageId, request.LicenseNumber, request.OccurredAt, cancellationToken);

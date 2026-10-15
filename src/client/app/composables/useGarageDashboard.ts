@@ -27,13 +27,15 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
   const error = ref('')
   const selectedGarage = computed(() => garages.value.find(garage => garage.id === garageId.value) ?? null)
 
-  function explainError(value: unknown): DashboardNotice {
+  function explainError(value: unknown, operation: 'gate' | 'lot' = 'gate'): DashboardNotice {
     const apiError = value as Error & { status?: number, problem?: { code?: string, gateOpened?: boolean, requiresCustomerService?: boolean, minimumOccurredAt?: string } }
     return {
       kind: 'error',
-      message: apiError.message || 'Toiminto epäonnistui. Päivitä tilanne ja yritä uudelleen.',
+      message: apiError.problem?.code === 'VISIT_ALREADY_PARKED'
+        ? 'Auto on jo pysäköitynä. Vapauta ensin sen nykyinen paikka ennen uuteen paikkaan ajamista. Paikkaan ajoa ei kirjattu.'
+        : apiError.message || 'Toiminto epäonnistui. Päivitä tilanne ja yritä uudelleen.',
       code: apiError.problem?.code,
-      gateOpened: apiError.problem?.gateOpened,
+      gateOpened: operation === 'gate' ? apiError.problem?.gateOpened : undefined,
       requiresCustomerService: apiError.problem?.requiresCustomerService
         || apiError.problem?.code === 'ACTIVE_VISIT_NOT_FOUND',
       minimumOccurredAt: apiError.problem?.minimumOccurredAt
@@ -119,20 +121,22 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
     }
   }
 
-  async function enterGarageFromImage(image: File, occurredAt: string | null): Promise<void> {
-    if (loading.value || submitting.value || garageId.value === null || !image) return
+  async function enterGarageFromImage(image: File, occurredAt: string | null): Promise<boolean> {
+    if (loading.value || submitting.value || garageId.value === null || !image) return false
     const commandRoute = routeGeneration
     const commandGarage = garageId.value
     submitting.value = true
     try {
       const result = await api.enterGarageFromImage(commandGarage, image, occurredAt)
-      if (commandRoute !== routeGeneration) return
+      if (commandRoute !== routeGeneration) return false
       await afterMutation(`${entryMessage(result)} Tunnistettu rekisteri: ${result.recognizedLicenseNumber}. VisitId: ${result.visitId}.`, result.outcome,
         result.outcome === 'RecoveredMissingExit' ? 'warning' : result.outcome === 'Duplicate' ? 'info' : 'success')
+      return true
     } catch (cause) {
-      if (commandRoute !== routeGeneration) return
+      if (commandRoute !== routeGeneration) return false
       notice.value = explainError(cause)
       if ((cause as { status?: number }).status === 409) await refresh()
+      return false
     } finally {
       submitting.value = false
     }
@@ -177,7 +181,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
       await afterMutation(`Paikan käyttö kirjattu. Tapahtuma-aika: ${effectiveTime}.`, visitId === null ? 'Tuntematon auto tai käynti' : undefined)
     } catch (cause) {
       if (commandRoute !== routeGeneration) return
-      notice.value = explainError(cause)
+      notice.value = explainError(cause, 'lot')
       if ((cause as { status?: number }).status === 409) {
         await refresh()
       }
@@ -202,7 +206,7 @@ export function useGarageDashboard(api: GarageApi = inject(garageApiKey, new Htt
       await afterMutation(`${message} Tapahtuma-aika: ${formatEffectiveTime(result.effectiveOccurredAt)}.`)
     } catch (cause) {
       if (commandRoute !== routeGeneration) return
-      notice.value = explainError(cause)
+      notice.value = explainError(cause, 'lot')
       if ((cause as { status?: number }).status === 409) {
         await refresh()
       }
